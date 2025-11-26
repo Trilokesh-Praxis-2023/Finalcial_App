@@ -65,7 +65,7 @@ st.success("🔓 Access Granted")
 
 
 # =================================================
-# ➕ ADD EXPENSE ENTRY WITH MONTH + %ROW + RUNNING TOTAL
+# ➕ ADD EXPENSE ENTRY WITH MONTH + % + RUNNING TOTAL (FINAL FIX)
 # =================================================
 with st.expander("➕ Add Expense"):
     with st.form("expense_form"):
@@ -77,11 +77,12 @@ with st.expander("➕ Add Expense"):
 
     if submit:
 
-        # ===== compute auto values =====
         month_value = pd.to_datetime(d).strftime("%Y-%m")
+
         current_total = df["amount"].sum() if not df.empty else 0
         new_running_total = current_total + float(amt)
-        row_percent = (float(amt) / new_running_total) * 100    # weight in total
+
+        row_percent = (float(amt) / new_running_total) * 100
 
         try:
             df_new = pd.DataFrame([{
@@ -90,8 +91,8 @@ with st.expander("➕ Add Expense"):
                 "category": cat,
                 "amount": float(amt),
                 "month": month_value,
-                "% row": row_percent,
-                "running total": new_running_total
+                "percent_row": row_percent,        # 💥 FIXED — no % symbol
+                "running_total": new_running_total # 💥 FIXED — no space
             }])
 
             df_new.to_sql("finance_data", engine, if_exists="append", index=False)
@@ -99,7 +100,7 @@ with st.expander("➕ Add Expense"):
             st.success("✔ Expense Saved Successfully")
 
         except Exception as e:
-            st.error(f"❌ Upload Failed — DB Error:\n{e}")
+            st.error(f"❌ Upload Failed:\n{e}")
 
 
 
