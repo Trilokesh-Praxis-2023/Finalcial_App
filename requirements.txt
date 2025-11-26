@@ -1,0 +1,9 @@
+streamlit
+pandas
+sqlalchemy
+psycopg2
+python-dotenv
+prophet
+altair
+openpyxl
+pandas
