@@ -191,21 +191,68 @@ if "income" in df.columns:
     st.line_chart(pd.DataFrame({"Income":income,"Expense":expense}))
     st.success(f"🔥 Total Savings: ₹{(income-expense).sum():,.0f}")
 
-
 # =================================================
-# 🔮 FORECASTING (Prophet — Runs on Demand)
+# 🔮 FORECASTING SECTION (MONTH + DAY)
 # =================================================
 st.divider()
-st.header("🔮 Expense Forecast AI (Next 6 Months)")
+st.header("🔮 Forecasting & AI Predictions")
 
-if st.button("Run Forecast Model"):
-    fdf = df.groupby("year_month")["amount"].sum().reset_index()
-    fdf["ds"] = pd.to_datetime(fdf.year_month)
-    fdf.rename(columns={"amount":"y"}, inplace=True)
+if st.button("Generate Forecast"):
+    
+    # ==========================
+    # MONTHLY FORECAST (Existing + Improved)
+    # ==========================
+    st.subheader("📅 Monthly Forecast (Next 6 Months)")
 
-    model = Prophet().fit(fdf[["ds","y"]])
-    future = model.make_future_dataframe(6,"M")
-    forecast = model.predict(future)
+    f_month = filtered.groupby("year_month")["amount"].sum().reset_index()
 
-    st.dataframe(forecast.tail(6)[["ds","yhat","yhat_lower","yhat_upper"]])
-    st.pyplot(model.plot(forecast))
+    if len(f_month) < 3:
+        st.warning("⚠ Need at least 3 months of data for monthly forecasting.")
+    else:
+        f_month["ds"] = pd.to_datetime(f_month.year_month)
+        f_month.rename(columns={"amount": "y"}, inplace=True)
+
+        m_model = Prophet()
+        m_model.fit(f_month[["ds","y"]])
+
+        future_m = m_model.make_future_dataframe(periods=6, freq="ME")
+        forecast_m = m_model.predict(future_m)
+
+        st.dataframe(
+            forecast_m.tail(6)[["ds","yhat","yhat_lower","yhat_upper"]]
+            .rename(columns={"ds":"Month","yhat":"Predicted"})
+        )
+
+        fig_m = m_model.plot(forecast_m)
+        st.pyplot(fig_m)
+
+
+    # ==========================
+    # 🔥 DAY-WISE FORECAST
+    # ==========================
+    st.subheader("📆 Daily Forecast (Next 30 Days)")
+
+    f_day = filtered.groupby("period")["amount"].sum().reset_index()
+
+    if len(f_day) < 7:
+        st.warning("⚠ Need at least 7 days of data for daily forecasting.")
+    else:
+        f_day["ds"] = pd.to_datetime(f_day["period"])
+        f_day.rename(columns={"amount":"y"}, inplace=True)
+
+        d_model = Prophet(daily_seasonality=True)  # enable day pattern detection
+        d_model.fit(f_day[["ds","y"]])
+
+        future_d = d_model.make_future_dataframe(periods=30, freq="D")
+        forecast_d = d_model.predict(future_d)
+
+        st.dataframe(
+            forecast_d.tail(30)[["ds","yhat","yhat_lower","yhat_upper"]]
+            .rename(columns={"ds":"Date","yhat":"Predicted"})
+        )
+
+        fig_d = d_model.plot(forecast_d)
+        st.pyplot(fig_d)
+
+        # Day-wise trend available
+        st.line_chart(forecast_d.set_index("ds")["yhat"].tail(30))
