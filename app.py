@@ -183,71 +183,62 @@ k12.metric("📅 Avg Daily Spend", f"₹{daily_avg:,.0f}")
 
 days_count = filtered["period"].nunique()
 k13.metric("📆 Active Spend Days", f"{days_count} days")
+
 # =================================================
-# 📄 VIEW TRANSACTIONS + EXPORT + REFRESH
+# 📄 VIEW TRANSACTIONS + EXPORT
 # =================================================
 st.subheader("📄 Transactions")
-
-# 🔄 Reload Button
-if st.button("🔄 Refresh Table"):
-    load_data.clear()          # clear cache
-    st.experimental_rerun()     # reload page instantly
-
 st.dataframe(filtered, width="stretch", height=300)
 
-# CSV Export
 csv = filtered.to_csv(index=False).encode("utf-8")
 st.download_button("📄 Download CSV", csv, "transactions.csv")
 
-# Excel Export
 buf = BytesIO()
-with pd.ExcelWriter(buf) as writer:
-    filtered.to_excel(writer, index=False)
+with pd.ExcelWriter(buf) as writer: filtered.to_excel(writer, index=False)
 st.download_button("📊 Download Excel", buf.getvalue(), "transactions.xlsx")
 
-
 # =================================================
-# ❌ DELETE A TRANSACTION
+# ❌ DELETE A TRANSACTION (AUTO REFRESH)
 # =================================================
 st.subheader("🗑 Delete Transaction")
 
-# Load table with IDs
 try:
-    df_del = pd.read_sql("SELECT *, ROW_NUMBER() OVER () as row_id FROM finance_data", engine)
-    df_del_display = df_del[["row_id","period","accounts","category","amount"]]  # shown to user
+    df_del = pd.read_sql("SELECT *, ROW_NUMBER() OVER () AS row_id FROM finance_data", engine)
+    df_del_display = df_del[["row_id","period","accounts","category","amount"]]
 
     st.dataframe(df_del_display, height=250, width="stretch")
 
     delete_id = st.number_input("Enter Row ID to Delete", min_value=1, step=1)
+
     if st.button("Delete Selected Record"):
-        try:
-            del_row = df_del[df_del["row_id"] == delete_id]
+        del_row = df_del[df_del["row_id"] == delete_id]
 
-            if del_row.empty:
-                st.error("⚠ Invalid ID — no record found.")
-            else:
-                # actual delete
-                period = del_row.iloc[0]["period"]
-                acc = del_row.iloc[0]["accounts"]
-                cat = del_row.iloc[0]["category"]
-                amt = del_row.iloc[0]["amount"]
+        if del_row.empty:
+            st.error("⚠ Invalid ID — no matching record found.")
 
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("""DELETE FROM finance_data 
-                                WHERE period=:p AND accounts=:a AND category=:c AND amount=:m"""),
-                        {"p":period, "a":acc, "c":cat, "m":amt}
-                    )
-                    conn.commit()
+        else:
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    DELETE FROM finance_data
+                    WHERE period = :p
+                    AND accounts = :a
+                    AND category = :c
+                    AND amount = :m
+                """), {
+                    "p": del_row.iloc[0]["period"],
+                    "a": del_row.iloc[0]["accounts"],
+                    "c": del_row.iloc[0]["category"],
+                    "m": del_row.iloc[0]["amount"]
+                })
+                conn.commit()
 
-                st.success(f"🗑 Deleted Successfully — {cat} ₹{amt} ({period})")
-                load_data.clear()
-
-        except Exception as e:
-            st.error(f"❌ Delete Failed:\n{e}")
+            st.success("🗑 Record Deleted Successfully!")
+            
+            load_data.clear()  # refresh cache
+            st.rerun()         # 🔥 AUTO-RELOAD AFTER DELETE
 
 except Exception as e:
-    st.error(f"Failed to load records for deletion:\n{e}")
+    st.error(f"❌ Failed to load transaction table:\n{e}")
 
 
 # =================================================
