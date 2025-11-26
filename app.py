@@ -200,17 +200,6 @@ if not m.empty:
     st.altair_chart(chart)   # ← no width/use_container_width here
 
 
-
-
-# 2️⃣ Category Spending
-st.subheader("🏷 Category Spending")
-
-cat_sorted = filtered.groupby("category")["amount"].sum().sort_values(ascending=False)
-
-st.bar_chart(cat_sorted)
-
-
-
 # =================================================
 # 💰 BUDGET ENFORCEMENT
 # =================================================
@@ -222,32 +211,6 @@ b["Status"] = b["amount"].apply(lambda x: "🚨 Over" if x>MONTHLY_BUDGET else "
 
 st.dataframe(b)
 
-
-
-# =================================================
-# 💸 INCOME + SAVINGS SYSTEM
-# =================================================
-st.divider()
-st.header("💸 Income + Savings Dashboard")
-
-with st.expander("➕ Add Income"):
-    with st.form("income_form"):
-        inc_d = st.date_input("Income Date")
-        inc_amt = st.number_input("Income Amount", min_value=1000.0)
-        inc_save = st.form_submit_button("💾 Save Income")
-    if inc_save:
-        pd.DataFrame([{"period":inc_d,"income":inc_amt}])\
-            .to_sql("finance_data",engine,if_exists="append",index=False)
-        load_data.clear()
-        st.success("Income saved ✔")
-
-
-if "income" in df.columns:
-    income = df.groupby("year_month")["income"].sum()
-    expense = df.groupby("year_month")["amount"].sum()
-    st.subheader("📈 Income vs Expense")
-    st.line_chart(pd.DataFrame({"Income":income,"Expense":expense}))
-    st.success(f"🔥 Total Savings: ₹{(income-expense).sum():,.0f}")
 
 # =================================================
 # 🔮 FORECASTING SECTION (MONTH + DAY)
