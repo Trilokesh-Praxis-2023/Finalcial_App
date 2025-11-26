@@ -140,12 +140,11 @@ if not m.empty:
 
 # 2️⃣ Category Spending
 st.subheader("🏷 Category Spending")
-st.bar_chart(filtered.groupby("category")["amount"].sum())
 
+cat_sorted = filtered.groupby("category")["amount"].sum().sort_values(ascending=False)
 
-# 3️⃣ Account Distribution
-st.subheader("👥 Accounts Usage Breakdown")
-st.bar_chart(filtered.groupby("accounts")["amount"].sum())
+st.bar_chart(cat_sorted)
+
 
 
 # =================================================
@@ -159,11 +158,6 @@ b["Status"] = b["amount"].apply(lambda x: "🚨 Over" if x>MONTHLY_BUDGET else "
 
 st.dataframe(b)
 
-# Alerts
-for _,r in b.iterrows():
-    (st.error if r.amount>MONTHLY_BUDGET else st.success)(
-        f"{r.year_month}: {r.Status} — ₹{r.amount:,.0f}"
-    )
 
 
 # =================================================
