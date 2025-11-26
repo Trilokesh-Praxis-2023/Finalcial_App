@@ -6,6 +6,8 @@ from prophet import Prophet
 from io import BytesIO
 import altair as alt
 import os
+from sqlalchemy import text
+
 
 # =================================================
 # 🔹 INITIAL SETUP + LOAD ENV
@@ -63,10 +65,7 @@ st.success("🔓 Access Granted")
 
 
 # =================================================
-# ➕ ADD EXPENSE ENTRY
-# =================================================
-# =================================================
-# ➕ ADD EXPENSE ENTRY (DB Safe Mode)
+# ➕ ADD EXPENSE ENTRY WITH MONTH + %ROW + RUNNING TOTAL
 # =================================================
 with st.expander("➕ Add Expense"):
     with st.form("expense_form"):
@@ -77,12 +76,22 @@ with st.expander("➕ Add Expense"):
         submit = st.form_submit_button("💾 Save Entry")
 
     if submit:
+
+        # ===== compute auto values =====
+        month_value = pd.to_datetime(d).strftime("%Y-%m")
+        current_total = df["amount"].sum() if not df.empty else 0
+        new_running_total = current_total + float(amt)
+        row_percent = (float(amt) / new_running_total) * 100    # weight in total
+
         try:
             df_new = pd.DataFrame([{
                 "period": pd.to_datetime(d),
                 "accounts": acc,
                 "category": cat,
-                "amount": float(amt)
+                "amount": float(amt),
+                "month": month_value,
+                "% row": row_percent,
+                "running total": new_running_total
             }])
 
             df_new.to_sql("finance_data", engine, if_exists="append", index=False)
@@ -187,6 +196,49 @@ st.download_button("📄 Download CSV", csv, "transactions.csv")
 buf = BytesIO()
 with pd.ExcelWriter(buf) as writer: filtered.to_excel(writer, index=False)
 st.download_button("📊 Download Excel", buf.getvalue(), "transactions.xlsx")
+
+# =================================================
+# ❌ DELETE A TRANSACTION
+# =================================================
+st.subheader("🗑 Delete Transaction")
+
+# Load table with IDs
+try:
+    df_del = pd.read_sql("SELECT *, ROW_NUMBER() OVER () as row_id FROM finance_data", engine)
+    df_del_display = df_del[["row_id","period","accounts","category","amount"]]  # shown to user
+
+    st.dataframe(df_del_display, height=250, width="stretch")
+
+    delete_id = st.number_input("Enter Row ID to Delete", min_value=1, step=1)
+    if st.button("Delete Selected Record"):
+        try:
+            del_row = df_del[df_del["row_id"] == delete_id]
+
+            if del_row.empty:
+                st.error("⚠ Invalid ID — no record found.")
+            else:
+                # actual delete
+                period = del_row.iloc[0]["period"]
+                acc = del_row.iloc[0]["accounts"]
+                cat = del_row.iloc[0]["category"]
+                amt = del_row.iloc[0]["amount"]
+
+                with engine.connect() as conn:
+                    conn.execute(
+                        text("""DELETE FROM finance_data 
+                                WHERE period=:p AND accounts=:a AND category=:c AND amount=:m"""),
+                        {"p":period, "a":acc, "c":cat, "m":amt}
+                    )
+                    conn.commit()
+
+                st.success(f"🗑 Deleted Successfully — {cat} ₹{amt} ({period})")
+                load_data.clear()
+
+        except Exception as e:
+            st.error(f"❌ Delete Failed:\n{e}")
+
+except Exception as e:
+    st.error(f"Failed to load records for deletion:\n{e}")
 
 
 # =================================================
