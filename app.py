@@ -65,6 +65,9 @@ st.success("🔓 Access Granted")
 # =================================================
 # ➕ ADD EXPENSE ENTRY
 # =================================================
+# =================================================
+# ➕ ADD EXPENSE ENTRY (DB Safe Mode)
+# =================================================
 with st.expander("➕ Add Expense"):
     with st.form("expense_form"):
         d = st.date_input("Date")
@@ -74,10 +77,21 @@ with st.expander("➕ Add Expense"):
         submit = st.form_submit_button("💾 Save Entry")
 
     if submit:
-        pd.DataFrame([{"period":d,"accounts":acc,"category":cat,"amount":amt}])\
-            .to_sql("finance_data",engine,if_exists="append",index=False)
-        load_data.clear()
-        st.success("Expense saved ✔")
+        try:
+            df_new = pd.DataFrame([{
+                "period": pd.to_datetime(d),
+                "accounts": acc,
+                "category": cat,
+                "amount": float(amt)
+            }])
+
+            df_new.to_sql("finance_data", engine, if_exists="append", index=False)
+            load_data.clear()
+            st.success("✔ Expense Saved Successfully")
+
+        except Exception as e:
+            st.error(f"❌ Upload Failed — DB Error:\n{e}")
+
 
 
 # =================================================
