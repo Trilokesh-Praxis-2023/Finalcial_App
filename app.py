@@ -183,19 +183,28 @@ k12.metric("📅 Avg Daily Spend", f"₹{daily_avg:,.0f}")
 
 days_count = filtered["period"].nunique()
 k13.metric("📆 Active Spend Days", f"{days_count} days")
-
 # =================================================
-# 📄 VIEW TRANSACTIONS + EXPORT
+# 📄 VIEW TRANSACTIONS + EXPORT + REFRESH
 # =================================================
 st.subheader("📄 Transactions")
+
+# 🔄 Reload Button
+if st.button("🔄 Refresh Table"):
+    load_data.clear()          # clear cache
+    st.experimental_rerun()     # reload page instantly
+
 st.dataframe(filtered, width="stretch", height=300)
 
+# CSV Export
 csv = filtered.to_csv(index=False).encode("utf-8")
 st.download_button("📄 Download CSV", csv, "transactions.csv")
 
+# Excel Export
 buf = BytesIO()
-with pd.ExcelWriter(buf) as writer: filtered.to_excel(writer, index=False)
+with pd.ExcelWriter(buf) as writer:
+    filtered.to_excel(writer, index=False)
 st.download_button("📊 Download Excel", buf.getvalue(), "transactions.xlsx")
+
 
 # =================================================
 # ❌ DELETE A TRANSACTION
