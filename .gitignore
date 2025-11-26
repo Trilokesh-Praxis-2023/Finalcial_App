@@ -1,0 +1,59 @@
+# ==========================================
+# 🔐 SECURITY (DO NOT TRACK CREDENTIALS)
+# ==========================================
+.env
+.env.local
+*.env
+*.key
+*.pem
+
+# ==========================================
+# 📦 ENVIRONMENTS
+# ==========================================
+# Python venv folders
+.venv/
+venv/
+env/
+
+# ==========================================
+# ⚙ CACHE + BYTECODE + BUILD ARTIFACTS
+# ==========================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Prophet / cmdstanpy build cache
+~/.cmdstan*
+cmdstan*
+stan_cache/
+
+# Streamlit cache
+.streamlit/
+
+# ==========================================
+# 🧾 DATA OUTPUT & EXPORT FILES
+# ==========================================
+*.csv
+*.xlsx
+*.xls
+*.db
+*.sqlite
+*.zip
+
+# If you want to track sample data, remove the above filter
+
+# ==========================================
+# 🛠 IDE & OS FILES
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ==========================================
+# 🚀 Deployment Auto Files (optional ignore)
+# ==========================================
+logs/
+*.log
