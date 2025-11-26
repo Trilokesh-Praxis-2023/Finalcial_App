@@ -96,6 +96,37 @@ if f_month: filtered = filtered[filtered.year_month.isin(f_month)]
 if f_cat:   filtered = filtered[filtered.category.isin(f_cat)]
 if f_acc:   filtered = filtered[filtered.accounts.isin(f_acc)]
 
+# =================================================
+# 📊 KPI CARDS (Power-BI Style)
+# =================================================
+kpi_cols = st.columns(4)
+
+total_spend = filtered["amount"].sum()
+kpi_cols[0].metric("💸 Total Spend", f"₹{total_spend:,.0f}")
+
+avg_monthly = filtered.groupby("year_month")["amount"].sum().mean()
+kpi_cols[1].metric("📅 Avg Monthly Expense", f"₹{avg_monthly:,.0f}")
+
+avg_category = filtered.groupby("category")["amount"].sum().mean()
+kpi_cols[2].metric("🏷 Avg Category Expense", f"₹{avg_category:,.0f}")
+
+running_total = df["amount"].sum()
+kpi_cols[3].metric("📈 Running Total", f"₹{running_total:,.0f}")
+
+
+# ==== OPTIONAL SECOND ROW (Like your Screenshot) ====
+kpi_cols2 = st.columns(3)
+
+percent_of_total = (total_spend / df["amount"].sum()) * 100
+kpi_cols2[0].metric("📊 % of Total Spend", f"{percent_of_total:.2f}%")
+
+best_month = filtered.groupby("year_month")["amount"].sum().idxmax()
+best_month_value = filtered.groupby("year_month")["amount"].sum().max()
+kpi_cols2[1].metric("🔥 Highest Spend Month", f"{best_month}: ₹{best_month_value:,.0f}")
+
+worst_month = filtered.groupby("year_month")["amount"].sum().idxmin()
+worst_month_value = filtered.groupby("year_month")["amount"].sum().min()
+kpi_cols2[2].metric("🧊 Lowest Spend Month", f"{worst_month}: ₹{worst_month_value:,.0f}")
 
 # =================================================
 # 📄 VIEW TRANSACTIONS + EXPORT
