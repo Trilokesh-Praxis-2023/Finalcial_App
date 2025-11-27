@@ -121,28 +121,48 @@ if f_cat:   filtered = filtered[filtered.category.isin(f_cat)]
 if f_acc:   filtered = filtered[filtered.accounts.isin(f_acc)]
 
 # =================================================
-# 📊 ADVANCED KPI DASHBOARD (FULL + CATEGORY ANALYSIS)
+# 📊 ADVANCED KPI DASHBOARD (FULL + WEEKLY + CURRENT MONTH + DAILY)
 # =================================================
 
-# ==========  MAIN KPI ROW ==========
-k1, k2, k3, k4 = st.columns(4)
+# ========== PRE-CALCULATIONS ==========
+today = pd.to_datetime("today").date()
+today_spend = filtered[filtered["period"].dt.date == today]["amount"].sum()
+
+current_month_key = filtered["year_month"].max()
+current_month = filtered[filtered["year_month"] == current_month_key]
+current_month_total = current_month["amount"].sum()
+
+# Weekly Processing
+filtered["week"] = filtered["period"].dt.isocalendar().week
+filtered["year_week"] = filtered["period"].dt.strftime("%Y-W%U")
+weekly_spend = filtered.groupby("year_week")["amount"].sum()
+
+current_week_key = weekly_spend.index.max()
+current_week_total = weekly_spend.loc[current_week_key] if current_week_key in weekly_spend else 0
+previous_week_total = weekly_spend.iloc[-2] if len(weekly_spend) > 1 else 0
+wow_change = ((current_week_total - previous_week_total) / previous_week_total * 100) if previous_week_total > 0 else 0
+
+
+# ==========  ROW 1 — PRIMARY FINANCIAL SNAPSHOT ==========
+row1 = st.columns(5)
 
 total_spend = filtered["amount"].sum()
-k1.metric("💸 Total Spend", f"₹{total_spend:,.0f}")
+row1[0].metric("💸 Total Spend", f"₹{total_spend:,.0f}")
 
 avg_monthly = filtered.groupby("year_month")["amount"].sum().mean()
-k2.metric("📅 Avg Monthly Spend", f"₹{avg_monthly:,.0f}")
+row1[1].metric("📅 Avg Monthly Spend", f"₹{avg_monthly:,.0f}")
 
 avg_category = filtered.groupby("category")["amount"].mean().mean()
-k3.metric("🏷 Avg Category Expense", f"₹{avg_category:,.0f}")
+row1[2].metric("🏷 Avg Category Expense", f"₹{avg_category:,.0f}")
+
+row1[3].metric("📆 Current Month Spend", f"₹{current_month_total:,.0f}")
+row1[4].metric("📅 Today's Spend", f"₹{today_spend:,.0f}")
+
+
+# ==========  ROW 2 — MONTH + WEEK PERFORMANCE ==========
+k5, k6, k7, k8 = st.columns(4)
 
 lifetime_total = df["amount"].sum()
-k4.metric("📈 Running Lifetime Spend", f"₹{lifetime_total:,.0f}")
-
-
-# ==========  ROW 2 — MONTH PERFORMANCE ==========
-k5, k6, k7 = st.columns(3)
-
 percent_of_total = (total_spend / lifetime_total * 100) if lifetime_total>0 else 0
 k5.metric("📊 % of Lifetime Spend Used", f"{percent_of_total:.2f}%")
 
@@ -150,22 +170,20 @@ best_month = filtered.groupby("year_month")["amount"].sum().idxmax()
 best_month_amt = filtered.groupby("year_month")["amount"].sum().max()
 k6.metric("🔥 Highest Expense Month", f"{best_month}: ₹{best_month_amt:,.0f}")
 
-worst_month = filtered.groupby("year_month")["amount"].sum().idxmin()
-worst_month_amt = filtered.groupby("year_month")["amount"].sum().min()
-k7.metric("🧊 Lowest Expense Month", f"{worst_month}: ₹{worst_month_amt:,.0f}")
+k7.metric("📅 Current Week Spend", f"₹{current_week_total:,.0f}")
+
+# WEEK CHANGE SIGNAL (RED if Up 🔴 , GREEN if Down 🟢)
+k8.metric("🔄 Week-over-Week Change",
+           f"{wow_change:.2f}%",
+           delta_color="inverse")  # green ↓ good, red ↑ bad
 
 
-# ==========  ROW 3 — MORE KPIs ==========
-k8, k9, k10, k11 = st.columns(4)
-
-current_month = filtered[filtered["year_month"] == filtered["year_month"].max()]
-current_month_total = current_month["amount"].sum()
-
-k8.metric("📆 Current Month Spend", f"₹{current_month_total:,.0f}")
+# ==========  ROW 3 — CATEGORY STRENGTH ==========
+k9, k10, k11, k12 = st.columns(4)
 
 prev_month = filtered.groupby("year_month")["amount"].sum().iloc[-2] if len(filtered)>1 else 0
-mom_change = ((current_month_total-prev_month)/prev_month*100) if prev_month>0 else 0
-k9.metric("🔄 MoM Spend Change", f"{mom_change:.2f}%")
+mom_change = ((current_month_total - prev_month) / prev_month * 100) if prev_month>0 else 0
+k9.metric("📆 MoM Spend Change", f"{mom_change:.2f}%")
 
 max_cat = filtered.groupby("category")["amount"].sum().idxmax()
 max_cat_val = filtered.groupby("category")["amount"].sum().max()
@@ -175,15 +193,14 @@ min_cat = filtered.groupby("category")["amount"].sum().idxmin()
 min_cat_val = filtered.groupby("category")["amount"].sum().min()
 k11.metric("🪫 Lowest Category", f"{min_cat}: ₹{min_cat_val:,.0f}")
 
-
-# ==========  ROW 4 — DAILY KPIs ==========
-k12, k13 = st.columns(2)
-
 daily_avg = filtered.groupby("period")["amount"].sum().mean()
-k12.metric("📅 Average Daily Spend", f"₹{daily_avg:,.0f}")
+k12.metric("📅 Avg Daily Spend", f"₹{daily_avg:,.0f}")
 
+
+# ==========  ROW 4 — LOGGED ACTIVITY ==========
+row4 = st.columns(1)
 days_count = filtered["period"].nunique()
-k13.metric("📆 Active Spend Days", f"{days_count} days")
+row4[0].metric("📆 Total Days Logged", f"{days_count} days")
 
 
 # ======================================================
