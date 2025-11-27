@@ -187,27 +187,26 @@ k13.metric("📆 Active Spend Days", f"{days_count} days")
 
 
 # ======================================================
-# 🔥 CATEGORY PERFORMANCE + TREND + COLOR-BASED SIGNALS
+# 📊 CATEGORY PERFORMANCE & GROWTH ANALYTICS (SMART+EXPANDED)
 # ======================================================
 st.subheader("📊 Category Performance & Growth Analytics (Smart Signals)")
 
+# TOTAL spend by category
 cat_summary = filtered.groupby("category")["amount"].sum().sort_values(ascending=False)
 cat_month = filtered.groupby(["year_month","category"])["amount"].sum().reset_index()
 
-# ================== KPIs ==================
 c1, c2, c3 = st.columns(3)
 
-# 1️⃣ Highest Contributing Category
+# 1️⃣ Top Category Contribution
 top_cat = cat_summary.idxmax()
-top_cat_value = cat_summary.max()
-top_share = (top_cat_value/total_spend*100) if total_spend>0 else 0
-c1.metric("🥇 Top Category", f"{top_cat}", f"{top_share:.2f}%")
+top_cat_val = cat_summary.max()
+share_top = (top_cat_val/total_spend*100) if total_spend>0 else 0
+c1.metric("🥇 Top Category by Spend", top_cat, f"{share_top:.2f}% share")
 
-# 2️⃣ & 3️⃣ Trend Logic With Color Signals
+# 2️⃣ & 3️⃣ Trend Growth Signals
 if len(cat_month.year_month.unique()) >= 2:
 
-    last  = cat_month.year_month.max()
-    prev  = sorted(cat_month.year_month.unique())[-2]
+    last, prev = cat_month.year_month.max(), sorted(cat_month.year_month.unique())[-2]
 
     curr_df = cat_month[cat_month.year_month == last]
     prev_df = cat_month[cat_month.year_month == prev]
@@ -216,50 +215,52 @@ if len(cat_month.year_month.unique()) >= 2:
     growth["change_%"] = ((growth["amount_curr"] - growth["amount_prev"]) /
                           growth["amount_prev"].replace(0,1)) * 100
 
-    # FASTEST GROW (bad → RED)
+    # Fastest Rise (Bad → Red)
     up = growth.sort_values("change_%", ascending=False).head(1)
-    c2.metric(
-        "🔴 Category Spending Increased Most",
-        up.iloc[0]["category"],
-        f"{up.iloc[0]['change_%']:.2f}% ↑"
-    )
+    c2.metric("🔴 Highest Increase (Bad)", up.iloc[0]["category"], f"{up.iloc[0]['change_%']:.2f}% ↑")
 
-    # BIGGEST DROP (good → GREEN)
+    # Best Drop (Good → Green)
     down = growth.sort_values("change_%", ascending=True).head(1)
-    c3.metric(
-        "🟢 Biggest Positive Drop (Saving)",
-        down.iloc[0]["category"],
-        f"{down.iloc[0]['change_%']:.2f}% ↓"
-    )
+    c3.metric("🟢 Biggest Drop (Saving)", down.iloc[0]["category"], f"{down.iloc[0]['change_%']:.2f}% ↓")
 
 else:
-    c2.metric("🔴 Trend Data", "Not Enough History")
-    c3.metric("🟢 Trend Data", "Not Enough History")
+    c2.metric("🔴 Increase", "Not enough data")
+    c3.metric("🟢 Drop", "Not enough data")
 
-# ================== Share Table ==================
-st.write("### 📊 Category Spend Share Breakdown")
+
+# =============== NEW DEEP INSIGHTS =======================
+st.write("### 🧠 Category Intelligence Metrics")
+
+m1, m2, m3, m4 = st.columns(4)
+
+# Variance = how unstable a category spend is
+variance = cat_month.groupby("category")["amount"].var().sort_values(ascending=False)
+
+m2.metric("📈 Most Volatile Category", variance.idxmax(), f"{variance.max():.0f} variance")
+m3.metric("📉 Most Stable Category", variance.idxmin(), f"{variance.min():.0f} variance")
+
+# Average spend per category per month
+avg_cat_per_month = cat_month.groupby("category")["amount"].mean().sort_values(ascending=False)
+m1.metric("💡 Avg Spend/Category/Month", f"₹{avg_cat_per_month.mean():,.0f}")
+
+# Consistency Score → lower variation = better discipline
+consistency_score = (1 - variance/variance.max())*100 if variance.max()>0 else 100
+m4.metric("🧠 Consistency Score", f"{consistency_score.mean():.1f}%")
+
+
+# ========= Category Share Table =============
+st.write("### 📊 Spend Share Breakdown")
 share_df = cat_summary.reset_index().rename(columns={"amount":"Total Spend"})
 share_df["Share %"] = (share_df["Total Spend"]/total_spend*100).round(2)
 st.dataframe(share_df, width="stretch")
 
-# ===================== CATEGORY TREND LINE (NORMALIZED) =====================
-st.write("### 📈 Category Trend Over Time (Month-Wise) — Normalized View")
 
-cat_trend = (
-    filtered.groupby(["year_month","category"])
-    ["amount"].sum().reset_index()
-)
-
-# Pivot for multivariate chart
-cat_trend_pivot = cat_trend.pivot(index="year_month", columns="category", values="amount").fillna(0)
-
-# 🔥 Normalization (0–1 scaling per category)
-cat_norm = cat_trend_pivot.apply(
-    lambda x: (x - x.min()) / (x.max() - x.min() if x.max()!=x.min() else 1)
-)
-
-st.line_chart(cat_norm, width="stretch", height=350)
-st.caption("⚠ Normalized for comparison (scale 0–1). This shows trend, not absolute spend.")
+# ================== NORMALIZED CATEGORY TREND CHART ==================
+st.write("### 📈 Category Trend Over Time — Normalized for Comparison")
+pivot = cat_month.pivot(index="year_month", columns="category", values="amount").fillna(0)
+normalized = pivot.apply(lambda x:(x-x.min())/(x.max()-x.min() if x.max()!=x.min() else 1))
+st.line_chart(normalized, width="stretch", height=320)
+st.caption("📍 Trend only — values scaled 0-1 for visibility.")
 
 
 
