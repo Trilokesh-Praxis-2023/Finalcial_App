@@ -184,27 +184,36 @@ k12.metric("📅 Avg Daily Spend", f"₹{daily_avg:,.0f}")
 
 days_count = filtered["period"].nunique()
 k13.metric("📆 Active Spend Days", f"{days_count} days")
-
 # =================================================
-# 📄 VIEW TRANSACTIONS + EXPORT + REFRESH
+# 📄 VIEW TRANSACTIONS + EXPORT + REFRESH (UPDATED)
 # =================================================
 st.subheader("📄 Transactions")
 
-# 🔄 REFRESH BUTTON (FULL WORKING)
+# 🔄 Refresh Button
 if st.button("🔄 Refresh Table"):
-    load_data.clear()   # clear cached DB data
-    st.rerun()          # reload Streamlit instantly
+    load_data.clear()   # Clear cached DB result
+    st.rerun()          # Instant reload
 
-st.dataframe(filtered, width="stretch", height=300)
+# Format Display – remove time from period
+df_display = filtered.copy()
 
-# CSV Export
-csv = filtered.to_csv(index=False).encode("utf-8")
+if "period" in df_display:
+    df_display["period"] = pd.to_datetime(df_display["period"]).dt.date  # <-- Fixed clean date
+
+# Reorder columns if needed (looks cleaner)
+ordered_cols = ["period","accounts","category","amount","month","percent_row","running_total"]
+df_display = df_display[[c for c in ordered_cols if c in df_display.columns]]
+
+# Show formatted table
+st.dataframe(df_display, width="stretch", height=300)
+
+# =============== DOWNLOADS ===============
+csv = df_display.to_csv(index=False).encode("utf-8")
 st.download_button("📄 Download CSV", csv, "transactions.csv")
 
-# Excel Export
 buf = BytesIO()
 with pd.ExcelWriter(buf) as writer:
-    filtered.to_excel(writer, index=False)
+    df_display.to_excel(writer, index=False)
 st.download_button("📊 Download Excel", buf.getvalue(), "transactions.xlsx")
 
 # =================================================
