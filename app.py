@@ -187,52 +187,74 @@ k13.metric("📆 Active Spend Days", f"{days_count} days")
 
 
 # ======================================================
-# 🔥 CATEGORY PERFORMANCE INSIGHT WITH GROWTH ANALYSIS
+# 🔥 CATEGORY PERFORMANCE + TREND + COLOR-BASED SIGNALS
 # ======================================================
-st.subheader("📊 Category Performance & Growth Analytics")
+st.subheader("📊 Category Performance & Growth Analytics (Smart Signals)")
 
 cat_summary = filtered.groupby("category")["amount"].sum().sort_values(ascending=False)
 cat_month = filtered.groupby(["year_month","category"])["amount"].sum().reset_index()
 
+# ================== KPIs ==================
 c1, c2, c3 = st.columns(3)
 
-# 1️⃣ Top Contributing Category % Share
+# 1️⃣ Highest Contributing Category
 top_cat = cat_summary.idxmax()
-top_cat_val = cat_summary.max()
-share_top = (top_cat_val / total_spend * 100) if total_spend>0 else 0
-c1.metric("🥇 Top Spending Category", f"{top_cat}", f"{share_top:.2f}% Share")
+top_cat_value = cat_summary.max()
+top_share = (top_cat_value/total_spend*100) if total_spend>0 else 0
+c1.metric("🥇 Top Category", f"{top_cat}", f"{top_share:.2f}%")
 
-# 2️⃣ Fastest Growing & 3️⃣ Declining Category
+# 2️⃣ & 3️⃣ Trend Logic With Color Signals
 if len(cat_month.year_month.unique()) >= 2:
-    last   = cat_month.year_month.max()
-    prev   = sorted(cat_month.year_month.unique())[-2]
+
+    last  = cat_month.year_month.max()
+    prev  = sorted(cat_month.year_month.unique())[-2]
 
     curr_df = cat_month[cat_month.year_month == last]
     prev_df = cat_month[cat_month.year_month == prev]
 
-    merged = curr_df.merge(prev_df, on="category", suffixes=("_curr","_prev")).fillna(0)
-    merged["growth_percent"] = ((merged["amount_curr"]-merged["amount_prev"])/merged["amount_prev"].replace(0,1))*100
+    growth = curr_df.merge(prev_df, on="category", suffixes=("_curr","_prev")).fillna(0)
+    growth["change_%"] = ((growth["amount_curr"] - growth["amount_prev"]) /
+                          growth["amount_prev"].replace(0,1)) * 100
 
-    fastest = merged.sort_values("growth_percent", ascending=False).head(1)
-    slowest = merged.sort_values("growth_percent", ascending=True).head(1)
+    # FASTEST GROW (bad → RED)
+    up = growth.sort_values("change_%", ascending=False).head(1)
+    c2.metric(
+        "🔴 Category Spending Increased Most",
+        up.iloc[0]["category"],
+        f"{up.iloc[0]['change_%']:.2f}% ↑"
+    )
 
-    c2.metric("📈 Fastest Growing Category", 
-              fastest.iloc[0]["category"], 
-              f"{fastest.iloc[0]['growth_percent']:.2f}% ↑")
+    # BIGGEST DROP (good → GREEN)
+    down = growth.sort_values("change_%", ascending=True).head(1)
+    c3.metric(
+        "🟢 Biggest Positive Drop (Saving)",
+        down.iloc[0]["category"],
+        f"{down.iloc[0]['change_%']:.2f}% ↓"
+    )
 
-    c3.metric("📉 Biggest Drop Category", 
-              slowest.iloc[0]["category"], 
-              f"{slowest.iloc[0]['growth_percent']:.2f}% ↓")
 else:
-    c2.metric("📈 Growth Data", "Not enough history")
-    c3.metric("📉 Decline Data", "Not enough history")
+    c2.metric("🔴 Trend Data", "Not Enough History")
+    c3.metric("🟢 Trend Data", "Not Enough History")
 
-
-# CATEGORY SHARE TABLE
+# ================== Share Table ==================
 st.write("### 📊 Category Spend Share Breakdown")
 share_df = cat_summary.reset_index().rename(columns={"amount":"Total Spend"})
-share_df["Share %"] = (share_df["Total Spend"]/total_spend*100).round(2) if total_spend>0 else 0
+share_df["Share %"] = (share_df["Total Spend"]/total_spend*100).round(2)
 st.dataframe(share_df, width="stretch")
+
+# ===================== CATEGORY TREND LINE CHART =====================
+st.write("### 📈 Category Trend Over Time (Month-Wise)")
+cat_trend = (
+    filtered.groupby(["year_month","category"])
+    ["amount"].sum().reset_index()
+)
+
+# pivot for multi-line chart
+cat_trend_pivot = cat_trend.pivot(index="year_month", columns="category", values="amount").fillna(0)
+
+st.line_chart(cat_trend_pivot, width="stretch", height=350)
+
+
 
 
 
