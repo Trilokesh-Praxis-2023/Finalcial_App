@@ -242,17 +242,25 @@ share_df = cat_summary.reset_index().rename(columns={"amount":"Total Spend"})
 share_df["Share %"] = (share_df["Total Spend"]/total_spend*100).round(2)
 st.dataframe(share_df, width="stretch")
 
-# ===================== CATEGORY TREND LINE CHART =====================
-st.write("### 📈 Category Trend Over Time (Month-Wise)")
+# ===================== CATEGORY TREND LINE (NORMALIZED) =====================
+st.write("### 📈 Category Trend Over Time (Month-Wise) — Normalized View")
+
 cat_trend = (
     filtered.groupby(["year_month","category"])
     ["amount"].sum().reset_index()
 )
 
-# pivot for multi-line chart
+# Pivot for multivariate chart
 cat_trend_pivot = cat_trend.pivot(index="year_month", columns="category", values="amount").fillna(0)
 
-st.line_chart(cat_trend_pivot, width="stretch", height=350)
+# 🔥 Normalization (0–1 scaling per category)
+cat_norm = cat_trend_pivot.apply(
+    lambda x: (x - x.min()) / (x.max() - x.min() if x.max()!=x.min() else 1)
+)
+
+st.line_chart(cat_norm, width="stretch", height=350)
+st.caption("⚠ Normalized for comparison (scale 0–1). This shows trend, not absolute spend.")
+
 
 
 
