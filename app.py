@@ -121,10 +121,10 @@ if f_cat:   filtered = filtered[filtered.category.isin(f_cat)]
 if f_acc:   filtered = filtered[filtered.accounts.isin(f_acc)]
 
 # =================================================
-# 📊 ADVANCED KPI DASHBOARD
+# 📊 ADVANCED KPI DASHBOARD (FULL + CATEGORY ANALYSIS)
 # =================================================
 
-# MAIN ROW
+# ==========  MAIN KPI ROW ==========
 k1, k2, k3, k4 = st.columns(4)
 
 total_spend = filtered["amount"].sum()
@@ -140,11 +140,11 @@ lifetime_total = df["amount"].sum()
 k4.metric("📈 Running Lifetime Spend", f"₹{lifetime_total:,.0f}")
 
 
-# SECOND ROW
+# ==========  ROW 2 — MONTH PERFORMANCE ==========
 k5, k6, k7 = st.columns(3)
 
-percent_of_total = (total_spend / lifetime_total) * 100
-k5.metric("📊 % of All Time Spend", f"{percent_of_total:.2f}%")
+percent_of_total = (total_spend / lifetime_total * 100) if lifetime_total>0 else 0
+k5.metric("📊 % of Lifetime Spend Used", f"{percent_of_total:.2f}%")
 
 best_month = filtered.groupby("year_month")["amount"].sum().idxmax()
 best_month_amt = filtered.groupby("year_month")["amount"].sum().max()
@@ -155,7 +155,7 @@ worst_month_amt = filtered.groupby("year_month")["amount"].sum().min()
 k7.metric("🧊 Lowest Expense Month", f"{worst_month}: ₹{worst_month_amt:,.0f}")
 
 
-# THIRD ROW — NEW KPIs 🔥
+# ==========  ROW 3 — MORE KPIs ==========
 k8, k9, k10, k11 = st.columns(4)
 
 current_month = filtered[filtered["year_month"] == filtered["year_month"].max()]
@@ -163,9 +163,9 @@ current_month_total = current_month["amount"].sum()
 
 k8.metric("📆 Current Month Spend", f"₹{current_month_total:,.0f}")
 
-prev_month = filtered.groupby("year_month")["amount"].sum().iloc[-2] if len(filtered) > 1 else 0
-mom_change = ((current_month_total-prev_month)/prev_month)*100 if prev_month>0 else 0
-k9.metric("🔄 MoM Change", f"{mom_change:.2f}%")
+prev_month = filtered.groupby("year_month")["amount"].sum().iloc[-2] if len(filtered)>1 else 0
+mom_change = ((current_month_total-prev_month)/prev_month*100) if prev_month>0 else 0
+k9.metric("🔄 MoM Spend Change", f"{mom_change:.2f}%")
 
 max_cat = filtered.groupby("category")["amount"].sum().idxmax()
 max_cat_val = filtered.groupby("category")["amount"].sum().max()
@@ -176,14 +176,64 @@ min_cat_val = filtered.groupby("category")["amount"].sum().min()
 k11.metric("🪫 Lowest Category", f"{min_cat}: ₹{min_cat_val:,.0f}")
 
 
-# FOURTH ROW — Deep KPIs 💥
+# ==========  ROW 4 — DAILY KPIs ==========
 k12, k13 = st.columns(2)
 
 daily_avg = filtered.groupby("period")["amount"].sum().mean()
-k12.metric("📅 Avg Daily Spend", f"₹{daily_avg:,.0f}")
+k12.metric("📅 Average Daily Spend", f"₹{daily_avg:,.0f}")
 
 days_count = filtered["period"].nunique()
 k13.metric("📆 Active Spend Days", f"{days_count} days")
+
+
+# ======================================================
+# 🔥 CATEGORY PERFORMANCE INSIGHT WITH GROWTH ANALYSIS
+# ======================================================
+st.subheader("📊 Category Performance & Growth Analytics")
+
+cat_summary = filtered.groupby("category")["amount"].sum().sort_values(ascending=False)
+cat_month = filtered.groupby(["year_month","category"])["amount"].sum().reset_index()
+
+c1, c2, c3 = st.columns(3)
+
+# 1️⃣ Top Contributing Category % Share
+top_cat = cat_summary.idxmax()
+top_cat_val = cat_summary.max()
+share_top = (top_cat_val / total_spend * 100) if total_spend>0 else 0
+c1.metric("🥇 Top Spending Category", f"{top_cat}", f"{share_top:.2f}% Share")
+
+# 2️⃣ Fastest Growing & 3️⃣ Declining Category
+if len(cat_month.year_month.unique()) >= 2:
+    last   = cat_month.year_month.max()
+    prev   = sorted(cat_month.year_month.unique())[-2]
+
+    curr_df = cat_month[cat_month.year_month == last]
+    prev_df = cat_month[cat_month.year_month == prev]
+
+    merged = curr_df.merge(prev_df, on="category", suffixes=("_curr","_prev")).fillna(0)
+    merged["growth_percent"] = ((merged["amount_curr"]-merged["amount_prev"])/merged["amount_prev"].replace(0,1))*100
+
+    fastest = merged.sort_values("growth_percent", ascending=False).head(1)
+    slowest = merged.sort_values("growth_percent", ascending=True).head(1)
+
+    c2.metric("📈 Fastest Growing Category", 
+              fastest.iloc[0]["category"], 
+              f"{fastest.iloc[0]['growth_percent']:.2f}% ↑")
+
+    c3.metric("📉 Biggest Drop Category", 
+              slowest.iloc[0]["category"], 
+              f"{slowest.iloc[0]['growth_percent']:.2f}% ↓")
+else:
+    c2.metric("📈 Growth Data", "Not enough history")
+    c3.metric("📉 Decline Data", "Not enough history")
+
+
+# CATEGORY SHARE TABLE
+st.write("### 📊 Category Spend Share Breakdown")
+share_df = cat_summary.reset_index().rename(columns={"amount":"Total Spend"})
+share_df["Share %"] = (share_df["Total Spend"]/total_spend*100).round(2) if total_spend>0 else 0
+st.dataframe(share_df, width="stretch")
+
 
 
 # =================================================
