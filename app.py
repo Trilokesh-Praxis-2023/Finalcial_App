@@ -184,30 +184,42 @@ k12.metric("📅 Avg Daily Spend", f"₹{daily_avg:,.0f}")
 
 days_count = filtered["period"].nunique()
 k13.metric("📆 Active Spend Days", f"{days_count} days")
+
+
 # =================================================
-# 📄 VIEW TRANSACTIONS + EXPORT + REFRESH (UPDATED)
+# 📄 VIEW TRANSACTIONS + EXPORT + REFRESH (UPDATED + SORTED)
 # =================================================
 st.subheader("📄 Transactions")
 
 # 🔄 Refresh Button
 if st.button("🔄 Refresh Table"):
-    load_data.clear()   # Clear cached DB result
-    st.rerun()          # Instant reload
+    load_data.clear()
+    st.rerun()
 
-# Format Display – remove time from period
+# Format Display
 df_display = filtered.copy()
 
-if "period" in df_display:
-    df_display["period"] = pd.to_datetime(df_display["period"]).dt.date  # <-- Fixed clean date
+# Convert period → date only
+if "period" in df_display.columns:
+    df_display["period"] = pd.to_datetime(df_display["period"]).dt.date
 
-# Reorder columns if needed (looks cleaner)
-ordered_cols = ["period","accounts","category","amount","month","percent_row","running_total"]
-df_display = df_display[[c for c in ordered_cols if c in df_display.columns]]
+# ============================
+# 🔥 Sort by latest first
+# ============================
+if "period" in df_display.columns:
+    df_display = df_display.sort_values("period", ascending=False)
 
-# Show formatted table
+
+# Optional reorder for clean UI
+order_cols = ["period","accounts","category","amount","month","percent_row","running_total"]
+df_display = df_display[[c for c in order_cols if c in df_display.columns]]
+
+# Display
 st.dataframe(df_display, width="stretch", height=300)
 
-# =============== DOWNLOADS ===============
+# ============================
+# DOWNLOAD BUTTONS
+# ============================
 csv = df_display.to_csv(index=False).encode("utf-8")
 st.download_button("📄 Download CSV", csv, "transactions.csv")
 
@@ -216,15 +228,25 @@ with pd.ExcelWriter(buf) as writer:
     df_display.to_excel(writer, index=False)
 st.download_button("📊 Download Excel", buf.getvalue(), "transactions.xlsx")
 
+
 # =================================================
-# ❌ DELETE A TRANSACTION (AUTO REFRESH)
+# ❌ DELETE A TRANSACTION (AUTO REFRESH + CLEAN DATE + SORTED)
 # =================================================
 st.subheader("🗑 Delete Transaction")
 
 try:
+    # Load DB with row index
     df_del = pd.read_sql("SELECT *, ROW_NUMBER() OVER () AS row_id FROM finance_data", engine)
-    df_del_display = df_del[["row_id","period","accounts","category","amount"]]
 
+    # Convert period → date only (fix display)
+    if "period" in df_del.columns:
+        df_del["period"] = pd.to_datetime(df_del["period"]).dt.date
+
+    # Sort latest first
+    df_del = df_del.sort_values("period", ascending=False)
+
+    # Display
+    df_del_display = df_del[["row_id","period","accounts","category","amount"]]
     st.dataframe(df_del_display, height=250, width="stretch")
 
     delete_id = st.number_input("Enter Row ID to Delete", min_value=1, step=1)
@@ -234,7 +256,6 @@ try:
 
         if del_row.empty:
             st.error("⚠ Invalid ID — no matching record found.")
-
         else:
             with engine.connect() as conn:
                 conn.execute(text("""
@@ -252,9 +273,8 @@ try:
                 conn.commit()
 
             st.success("🗑 Record Deleted Successfully!")
-            
-            load_data.clear()  # refresh cache
-            st.rerun()         # 🔥 AUTO-RELOAD AFTER DELETE
+            load_data.clear()
+            st.rerun()     # 🔥 auto refresh
 
 except Exception as e:
     st.error(f"❌ Failed to load transaction table:\n{e}")
