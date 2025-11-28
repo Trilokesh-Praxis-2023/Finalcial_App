@@ -177,14 +177,16 @@ k8.metric("🔄 Week-over-Week Change",
            f"{wow_change:.2f}%",
            delta_color="inverse")  # green ↓ good, red ↑ bad
 
+# ==========  ROW 3 — CATEGORY STRENGTH + INCOME KPI ADDED ==========
+k9, k10, k11, k12, k13, k14 = st.columns(6)  # expanded to include income KPIs
 
-# ==========  ROW 3 — CATEGORY STRENGTH ==========
-k9, k10, k11, k12 = st.columns(4)
-
+# ----------- MONTH CHANGE -----------
 prev_month = filtered.groupby("year_month")["amount"].sum().iloc[-2] if len(filtered)>1 else 0
 mom_change = ((current_month_total - prev_month) / prev_month * 100) if prev_month>0 else 0
 k9.metric("📆 MoM Spend Change", f"{mom_change:.2f}%")
 
+
+# ----------- CATEGORY EXTREMES -----------
 max_cat = filtered.groupby("category")["amount"].sum().idxmax()
 max_cat_val = filtered.groupby("category")["amount"].sum().max()
 k10.metric("🏆 Top Category", f"{max_cat}: ₹{max_cat_val:,.0f}")
@@ -193,8 +195,36 @@ min_cat = filtered.groupby("category")["amount"].sum().idxmin()
 min_cat_val = filtered.groupby("category")["amount"].sum().min()
 k11.metric("🪫 Lowest Category", f"{min_cat}: ₹{min_cat_val:,.0f}")
 
+
+# ----------- DAILY SPEND AVG -----------
 daily_avg = filtered.groupby("period")["amount"].sum().mean()
 k12.metric("📅 Avg Daily Spend", f"₹{daily_avg:,.0f}")
+
+
+# ----------- 🆕 INCOME LOGIC (Based on EDATE rules you provided) ---
+from datetime import datetime
+
+def get_expected_income(current_period):
+    base = datetime(2024,10,1)   # start reference
+    current_period = pd.to_datetime(current_period)
+
+    month_diff = (current_period.year - base.year)*12 + (current_period.month - base.month)
+
+    if month_diff == 0: return 12000
+    elif month_diff == 1: return 14112
+    elif month_diff >= 2: return 24400
+    return 0
+
+expected_income = get_expected_income(current_month_key)
+k13.metric("💰 Expected Income", f"₹{expected_income:,.0f}")
+
+
+# ----------- Income vs Expense Balance -----------
+income_balance = expected_income - current_month_total
+emoji = "🟢 Saved" if income_balance > 0 else "🔴 Overspent"
+
+k14.metric("📊 Income vs Expense", f"₹{income_balance:,.0f}", emoji)
+
 
 
 # ==========  ROW 4 — LOGGED ACTIVITY ==========
