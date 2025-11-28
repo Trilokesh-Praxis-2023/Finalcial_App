@@ -177,8 +177,12 @@ k8.metric("🔄 Week-over-Week Change",
            f"{wow_change:.2f}%",
            delta_color="inverse")  # green ↓ good, red ↑ bad
 
-# ==========  ROW 3 — CATEGORY STRENGTH + INCOME KPI ADDED ==========
-k9, k10, k11, k12, k13, k14 = st.columns(6)  # expanded to include income KPIs
+# =================================================
+# ==========  ROW 3 — CATEGORY + INCOME ANALYTICS ==========
+# =================================================
+
+k9, k10, k11, k12, k13, k14, k15, k16 = st.columns(8)  # expanded for new KPIs
+
 
 # ----------- MONTH CHANGE -----------
 prev_month = filtered.groupby("year_month")["amount"].sum().iloc[-2] if len(filtered)>1 else 0
@@ -196,34 +200,38 @@ min_cat_val = filtered.groupby("category")["amount"].sum().min()
 k11.metric("🪫 Lowest Category", f"{min_cat}: ₹{min_cat_val:,.0f}")
 
 
-# ----------- DAILY SPEND AVG -----------
+# ----------- DAILY AVG SPEND -----------
 daily_avg = filtered.groupby("period")["amount"].sum().mean()
 k12.metric("📅 Avg Daily Spend", f"₹{daily_avg:,.0f}")
 
 
-# ----------- 🆕 INCOME LOGIC (Based on EDATE rules you provided) ---
+# ----------- 🆕 INCOME CALC RULE -----------
 from datetime import datetime
-
 def get_expected_income(current_period):
-    base = datetime(2024,10,1)   # start reference
+    base = datetime(2024,10,1)
     current_period = pd.to_datetime(current_period)
-
-    month_diff = (current_period.year - base.year)*12 + (current_period.month - base.month)
-
-    if month_diff == 0: return 12000
-    elif month_diff == 1: return 14112
-    elif month_diff >= 2: return 24400
-    return 0
+    month_diff = (current_period.year-base.year)*12 + (current_period.month-base.month)
+    return 12000 if month_diff==0 else 14112 if month_diff==1 else 24400 if month_diff>=2 else 0
 
 expected_income = get_expected_income(current_month_key)
 k13.metric("💰 Expected Income", f"₹{expected_income:,.0f}")
 
 
-# ----------- Income vs Expense Balance -----------
+# ----------- BALANCE -----------
 income_balance = expected_income - current_month_total
-emoji = "🟢 Saved" if income_balance > 0 else "🔴 Overspent"
+status_emoji = "🟢 Saved" if income_balance>0 else "🔴 Overspent"
+k14.metric("📊 Income vs Expense", f"₹{income_balance:,.0f}", status_emoji)
 
-k14.metric("📊 Income vs Expense", f"₹{income_balance:,.0f}", emoji)
+
+# ----------- 🧾 SAVINGS RATE % -----------
+savings_rate = (income_balance/expected_income*100) if expected_income>0 else 0
+k15.metric("💾 Savings Rate", f"{savings_rate:.1f}%")
+
+
+# ----------- ⚠ Expense / Income Ratio -----------
+ratio = (current_month_total/expected_income*100) if expected_income>0 else 0
+color_signal = "🟢 Good" if ratio<70 else "🟡 Caution" if ratio<100 else "🔴 Overburn"
+k16.metric("⚡ Spend/Income Ratio", f"{ratio:.1f}%", color_signal)
 
 
 
