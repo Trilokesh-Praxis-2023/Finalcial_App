@@ -366,9 +366,27 @@ m3.metric("📉 Most Stable Category", variance.idxmin(), f"{variance.min():.0f}
 avg_cat_per_month = cat_month.groupby("category")["amount"].mean().sort_values(ascending=False)
 m1.metric("💡 Avg Spend/Category/Month", f"₹{avg_cat_per_month.mean():,.0f}")
 
-# Consistency Score → lower variation = better discipline
-consistency_score = (1 - variance/variance.max())*100 if variance.max()>0 else 100
-m4.metric("🧠 Consistency Score", f"{consistency_score.mean():.1f}%")
+# ============================================================
+# Consistency Score → Measures spending stability month-to-month
+# Score closer to 100 = More disciplined spending
+# ============================================================
+
+monthly_expenses = filtered.groupby("year_month")["amount"].sum()
+
+if len(monthly_expenses) > 1:
+    variance = monthly_expenses.pct_change().abs()  # month-to-month fluctuation
+
+    # normalized score → less volatility = higher consistency
+    if variance.max() > 0:
+        consistency_score = (1 - (variance.mean()/variance.max())) * 100
+    else:
+        consistency_score = 100  # perfect stability case
+
+    m4.metric("🧠 Consistency Score", f"{consistency_score:.1f}%")
+
+else:
+    m4.metric("🧠 Consistency Score", "Not enough data 📉")
+
 
 
 # ========= Category Share Table =============
