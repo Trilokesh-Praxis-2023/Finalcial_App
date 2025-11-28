@@ -231,70 +231,79 @@ active_days = filtered["period"].nunique()
 st.metric("📆 Days Tracked", f"{active_days} days")
 
 
-
 # =================================================
-# 🧠 SMART SPEND REDUCTION SUGGESTIONS (FIXED + SAFE)
+# 🧠 SMART SPEND REDUCTION ADVISOR (FILTER SAFE)
 # =================================================
 st.subheader("🧠 Smart Spend Reduction Suggestions")
 
 suggestions = []
 
-# --- Recompute values locally (Fix for NameError) ---
+# ========== SAFE CATEGORY GROUPING ==========
 cat_group = filtered.groupby("category")["amount"].sum()
 
-if not cat_group.empty:
+if len(cat_group) > 0:
     max_cat = cat_group.idxmax()
     max_cat_val = cat_group.max()
 else:
-    max_cat = "N/A"
-    max_cat_val = 0
-
-# --- Daily + Monthly Baselines ---
-month_days = datetime.now().day
-ideal_daily = expected_income/30 if expected_income>0 else 0
+    max_cat, max_cat_val = "None", 0
 
 
-# ===================== RULE ENGINE =====================
+# ========== SAFE DAILY + MONTHLY BASELINE ==========
+month_days = max(1, datetime.now().day)
+ideal_daily = expected_income/30 if expected_income > 0 else 0
 
-# 1) Income Expense Risk
-if ratio > 100:
-    suggestions.append("🔴 Spending is higher than income — urgent cut advised!")
+
+# ========== SAVINGS & RATIO SAFE CHECK ==========
+ratio = (current_month_total/expected_income*100) if expected_income>0 else 0
+save_rate = ((expected_income-current_month_total)/expected_income*100) if expected_income>0 else 0
+
+
+# =====================================================
+# RULE ENGINE — Now Fully Safe With Filtering
+# =====================================================
+
+# 1️⃣ Income vs Expense
+if ratio > 120:
+    suggestions.append("🔴 Danger — Spending >120% of income. Immediate cut necessary.")
+elif ratio > 100:
+    suggestions.append("🟥 Overspending — You exceeded your income this month.")
 elif ratio > 80:
-    suggestions.append("🟡 You are nearing income limit — reduce expenses on flexible items.")
+    suggestions.append("🟡 You are nearing income cap — reduce optional bills.")
 else:
-    suggestions.append("🟢 Income > Expense — Good financial balance this month.")
+    suggestions.append("🟢 Expenses under control — good month management!")
 
-# 2) Savings Quality
+# 2️⃣ Savings Condition
 if save_rate < 10:
-    suggestions.append("🚨 Savings below 10% — high financial vulnerability.")
+    suggestions.append("🚨 Savings under 10% — extremely risky month.")
 elif save_rate < 25:
-    suggestions.append("⚠ Aim to increase savings to 25% for safety net.")
+    suggestions.append("⚠ Improve savings to 25% for future stability.")
 else:
-    suggestions.append("🟢 Healthy savings rate maintained — keep it up!")
+    suggestions.append("🟢 Good savings health!")
 
-# 3) Suggest reduction in highest category
+# 3️⃣ Category Reduction Plan
 if max_cat_val > 0:
-    savings_estimate = max_cat_val * 0.15
-    suggestions.append(f"💡 Reduce **{max_cat}** expenses by 15% → Save ~ ₹{savings_estimate:,.0f}/month.")
+    suggestions.append(f"💡 Reduce **{max_cat}** by ~15% → Save ~₹{max_cat_val*0.15:,.0f}")
 
-# 4) Daily spend patterns
-if daily_avg > ideal_daily and ideal_daily>0:
-    suggestions.append(f"⛔ Daily spending exceeds ideal range — target <= ₹{ideal_daily:,.0f}/day.")
+# 4️⃣ Daily Spend Health
+if daily_avg > ideal_daily > 0:
+    suggestions.append(f"⚡ Daily spending too high → Maintain < ₹{ideal_daily:,.0f}/day")
 else:
-    suggestions.append("👍 Daily spend level is healthy.")
+    suggestions.append("👍 Daily spend is stable and healthy.")
 
-# 5) Spike Category Detection (Behaviour AI)
-mean_spend = cat_group.mean()
-for c,v in cat_group.items():
-    if v > mean_spend*1.4:
-        suggestions.append(f"⚡ Spike in **{c}** — set a monthly cap or reduce frequency.")
+# 5️⃣ Spike Detection (Safe Mode)
+if len(cat_group) > 0:
+    mean_sp = cat_group.mean()
+    for c,v in cat_group.items():
+        if v > mean_sp * 1.4:
+            suggestions.append(f"⚡ {c} spending jumped unusually — track & reduce habit.")
 
-# ========================================================
-# DISPLAY
-# ========================================================
-for s in suggestions:
-    st.write(s)
 
+# 📝 DISPLAY — No errors even on 1 month filter
+if suggestions:
+    for s in suggestions:
+        st.write(s)
+else:
+    st.info("No suggestions — filtered data too small to analyze.")
 
 
 
