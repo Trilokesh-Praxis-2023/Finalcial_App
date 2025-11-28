@@ -232,54 +232,70 @@ st.metric("📆 Days Tracked", f"{active_days} days")
 
 
 
-
-
 # =================================================
-# 🧠 AI SPEND REDUCTION ADVISOR
+# 🧠 SMART SPEND REDUCTION SUGGESTIONS (FIXED + SAFE)
 # =================================================
 st.subheader("🧠 Smart Spend Reduction Suggestions")
 
 suggestions = []
 
-# 1) If spend > income — overspending behaviour
-if ratio > 100:
-    suggestions.append("🔴 You have exceeded your income — immediate expense cut required.")
-elif ratio > 80:
-    suggestions.append("🟡 You're approaching income limits — reduce non-essential spend.")
+# --- Recompute values locally (Fix for NameError) ---
+cat_group = filtered.groupby("category")["amount"].sum()
 
-# 2) Low Savings Rate
-if save_rate < 10:
-    suggestions.append("🔻 Your savings rate is below 10%. Reduce expenses or plan emergency funds.")
-elif save_rate < 25:
-    suggestions.append("⚠ Stable but low savings. Try pushing to 25%+ for safer margins.")
+if not cat_group.empty:
+    max_cat = cat_group.idxmax()
+    max_cat_val = cat_group.max()
 else:
-    suggestions.append("🟢 Excellent! Financial discipline is strong this month.")
+    max_cat = "N/A"
+    max_cat_val = 0
 
-# 3) Highlight most expensive category + recommend reduction target
-high_cat = max_cat
-high_value = max_cat_val
-suggestions.append(f"💡 Cut {high_cat} category by 10-20% — saves approx ₹{high_value*0.15:,.0f}/month.")
-
-# 4) If daily burn is high
+# --- Daily + Monthly Baselines ---
 month_days = datetime.now().day
-ideal_daily = expected_income/30
+ideal_daily = expected_income/30 if expected_income>0 else 0
 
-if daily_avg > ideal_daily:
-    suggestions.append(f"⛔ Daily spend above healthy range. Target ≤ ₹{ideal_daily:,.0f}/day.")
+
+# ===================== RULE ENGINE =====================
+
+# 1) Income Expense Risk
+if ratio > 100:
+    suggestions.append("🔴 Spending is higher than income — urgent cut advised!")
+elif ratio > 80:
+    suggestions.append("🟡 You are nearing income limit — reduce expenses on flexible items.")
 else:
-    suggestions.append("👍 Daily burn level is within safe financial zone.")
+    suggestions.append("🟢 Income > Expense — Good financial balance this month.")
 
-# 5) Category Variance Alert (spike detection)
-cat_spend = filtered.groupby("category")["amount"].sum()
-mean_spend = cat_spend.mean()
-high_spenders = cat_spend[cat_spend > mean_spend*1.4]  # >40% above avg
+# 2) Savings Quality
+if save_rate < 10:
+    suggestions.append("🚨 Savings below 10% — high financial vulnerability.")
+elif save_rate < 25:
+    suggestions.append("⚠ Aim to increase savings to 25% for safety net.")
+else:
+    suggestions.append("🟢 Healthy savings rate maintained — keep it up!")
 
-for c,v in high_spenders.items():
-    suggestions.append(f"⚡ {c} spend unusually high — optimize or set limit next month.")
+# 3) Suggest reduction in highest category
+if max_cat_val > 0:
+    savings_estimate = max_cat_val * 0.15
+    suggestions.append(f"💡 Reduce **{max_cat}** expenses by 15% → Save ~ ₹{savings_estimate:,.0f}/month.")
 
-# -------- Display Suggestions --------
+# 4) Daily spend patterns
+if daily_avg > ideal_daily and ideal_daily>0:
+    suggestions.append(f"⛔ Daily spending exceeds ideal range — target <= ₹{ideal_daily:,.0f}/day.")
+else:
+    suggestions.append("👍 Daily spend level is healthy.")
+
+# 5) Spike Category Detection (Behaviour AI)
+mean_spend = cat_group.mean()
+for c,v in cat_group.items():
+    if v > mean_spend*1.4:
+        suggestions.append(f"⚡ Spike in **{c}** — set a monthly cap or reduce frequency.")
+
+# ========================================================
+# DISPLAY
+# ========================================================
 for s in suggestions:
     st.write(s)
+
+
 
 
 
