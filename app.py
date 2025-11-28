@@ -121,11 +121,8 @@ if f_cat:   filtered = filtered[filtered.category.isin(f_cat)]
 if f_acc:   filtered = filtered[filtered.accounts.isin(f_acc)]
 
 
-
-
-
 # =================================================
-# 📊 ADVANCED KPI DASHBOARD (CLEAN LAYOUT + NO TEXT CUT)
+# 📊 ADVANCED KPI DASHBOARD (NO TEXT CUTOFF, OPTIMISED DESIGN)
 # =================================================
 
 # ---------- PRE-CALCULATIONS ----------
@@ -136,6 +133,9 @@ current_month_key = filtered["year_month"].max()
 current_month = filtered[filtered["year_month"] == current_month_key]
 current_month_total = current_month["amount"].sum()
 
+# Format month to readable UI
+month_fmt = lambda m: pd.to_datetime(m).strftime("%b %Y")
+
 # Weekly Processing
 filtered["week"] = filtered["period"].dt.isocalendar().week
 filtered["year_week"] = filtered["period"].dt.strftime("%Y-W%U")
@@ -143,52 +143,48 @@ weekly_spend = filtered.groupby("year_week")["amount"].sum()
 
 current_week_key = weekly_spend.index.max()
 current_week_total = weekly_spend.loc[current_week_key] if current_week_key in weekly_spend else 0
-previous_week_total = weekly_spend.iloc[-2] if len(weekly_spend) > 1 else 0
-wow_change = ((current_week_total - previous_week_total) / previous_week_total * 100) if previous_week_total > 0 else 0
+previous_week_total = weekly_spend.iloc[-2] if len(weekly_spend)>1 else 0
+wow_change = ((current_week_total-previous_week_total)/previous_week_total*100) if previous_week_total>0 else 0
 
 
 # =================================================
-# 🔹 ROW 1 — OVERALL SNAPSHOT
+# 🔹 ROW 1 — SUMMARY SNAPSHOT
 # =================================================
-r1c1, r1c2, r1c3, r1c4 = st.columns(4)
+c1, c2, c3, c4 = st.columns(4)
 
 total_spend = filtered["amount"].sum()
-r1c1.metric("💸 Total Spend", f"₹{total_spend:,.0f}")
+c1.metric("💸 Total Spend", f"₹{total_spend:,.0f}")
 
 avg_monthly = filtered.groupby("year_month")["amount"].sum().mean()
-r1c2.metric("📅 Avg Monthly", f"₹{avg_monthly:,.0f}")
+c2.metric("📅 Avg Monthly", f"₹{avg_monthly:,.0f}")
 
-current_month_total = filtered[filtered["year_month"]==current_month_key]["amount"].sum()
-r1c3.metric("📆 This Month", f"₹{current_month_total:,.0f}")
-
-r1c4.metric("📅 Today Spend", f"₹{today_spend:,.0f}")
-st.caption("🔵 Overall monthly + daily spending overview")
+c3.metric("📆 This Month", f"₹{current_month_total:,.0f}")
+c4.metric("📅 Today", f"₹{today_spend:,.0f}")
 
 
 # =================================================
-# 🔹 ROW 2 — MONTH & WEEK TREND
+# 🔹 ROW 2 — MONTH + WEEK TREND
 # =================================================
 r2c1, r2c2, r2c3, r2c4 = st.columns(4)
 
 lifetime_total = df["amount"].sum()
-r2c1.metric("📊 % Lifetime Used", f"{(total_spend/lifetime_total*100):.1f}%")
+r2c1.metric("📊 Lifetime Used", f"{(total_spend/lifetime_total*100):.1f}%")
 
-best_month = filtered.groupby("year_month")["amount"].sum().idxmax()
-best_month_amt = filtered.groupby("year_month")["amount"].sum().max()
-r2c2.metric("🔥 Max Month", f"{best_month}: ₹{best_month_amt:,.0f}")
+best_month_full = filtered.groupby("year_month")["amount"].sum()
+best_month = best_month_full.idxmax()
+best_month_amt = best_month_full.max()
+r2c2.metric("🔥 Peak Month", month_fmt(best_month), f"₹{best_month_amt:,.0f}")
 
 r2c3.metric("📅 Week Spend", f"₹{current_week_total:,.0f}")
-
 r2c4.metric("🔄 WoW Change", f"{wow_change:.1f}%", delta_color="inverse")
-st.caption("🟢 Decrease good, 🔴 increase bad (auto color logic applied)")
 
 
 # =================================================
-# 🔹 ROW 3 — CATEGORY DISTRIBUTION
+# 🔹 ROW 3 — CATEGORY PERFORMANCE
 # =================================================
 r3c1, r3c2, r3c3, r3c4 = st.columns(4)
 
-prev_month = filtered.groupby("year_month")["amount"].sum().iloc[-2] if len(filtered)>1 else 0
+prev_month = best_month_full.iloc[-2] if len(best_month_full)>1 else 0
 mom_change = ((current_month_total-prev_month)/prev_month*100) if prev_month>0 else 0
 r3c1.metric("📆 MoM Change", f"{mom_change:.1f}%")
 
@@ -200,43 +196,90 @@ r3c3.metric("🪫 Low Category", min_cat)
 
 daily_avg = filtered.groupby("period")["amount"].sum().mean()
 r3c4.metric("📅 Avg/Day", f"₹{daily_avg:,.0f}")
-st.caption("📌 Category dominance + daily burn rate")
 
 
 # =================================================
-# 🔹 ROW 4 — INCOME vs EXPENSE ANALYSIS
+# 🔹 ROW 4 — INCOME vs EXPENSE
 # =================================================
-r4c1, r4c2, r4c3, r4c4 = st.columns(4)
+i1, i2, i3, i4 = st.columns(4)
 
 from datetime import datetime
-def get_expected_income(current_period):
+def get_income(date):
     base = datetime(2024,10,1)
-    current_period = pd.to_datetime(current_period)
-    month_diff = (current_period.year-base.year)*12 + (current_period.month-base.month)
-    return 12000 if month_diff==0 else 14112 if month_diff==1 else 24400
+    date = pd.to_datetime(date)
+    diff = (date.year-base.year)*12 + (date.month-base.month)
+    return 12000 if diff==0 else 14112 if diff==1 else 24400
 
-expected_income = get_expected_income(current_month_key)
-r4c1.metric("💰 Expected Income", f"₹{expected_income:,.0f}")
+expected_income = get_income(current_month_key)
+i1.metric("💰 Income Expected", f"₹{expected_income:,.0f}")
 
-income_balance = expected_income - current_month_total
-r4c2.metric("📊 Balance", f"₹{income_balance:,.0f}")
+balance = expected_income-current_month_total
+i2.metric("📊 Balance", f"₹{balance:,.0f}", "🟢" if balance>0 else "🔴")
 
-savings_rate = income_balance/expected_income*100 if expected_income>0 else 0
-r4c3.metric("💾 Savings %", f"{savings_rate:.1f}%")
+save_rate = balance/expected_income*100 if expected_income>0 else 0
+i3.metric("💾 Save Rate", f"{save_rate:.1f}%")
 
-spend_ratio = current_month_total/expected_income*100
-health = "🟢 Safe" if spend_ratio<70 else "🟡 Caution" if spend_ratio<100 else "🔴 High Burn"
-r4c4.metric("⚡ Spend %", f"{spend_ratio:.1f}%", health)
-st.caption("🧠 Determines financial safety & burn impact")
+ratio = current_month_total/expected_income*100
+indicator = "🟢 Safe" if ratio<70 else "🟡 High" if ratio<100 else "🔴 Burn"
+i4.metric("⚡ Spend %", f"{ratio:.1f}%", indicator)
 
 
 # =================================================
-# 🔹 ROW 5 — ACTIVITY STATS
+# 🔹 ROW 5 — ACTIVITY
 # =================================================
-days_count = filtered["period"].nunique()
-st.metric("📆 Active Spend Days", f"{days_count} days")
+active_days = filtered["period"].nunique()
+st.metric("📆 Days Tracked", f"{active_days} days")
 
 
+
+
+
+# =================================================
+# 🧠 AI SPEND REDUCTION ADVISOR
+# =================================================
+st.subheader("🧠 Smart Spend Reduction Suggestions")
+
+suggestions = []
+
+# 1) If spend > income — overspending behaviour
+if ratio > 100:
+    suggestions.append("🔴 You have exceeded your income — immediate expense cut required.")
+elif ratio > 80:
+    suggestions.append("🟡 You're approaching income limits — reduce non-essential spend.")
+
+# 2) Low Savings Rate
+if save_rate < 10:
+    suggestions.append("🔻 Your savings rate is below 10%. Reduce expenses or plan emergency funds.")
+elif save_rate < 25:
+    suggestions.append("⚠ Stable but low savings. Try pushing to 25%+ for safer margins.")
+else:
+    suggestions.append("🟢 Excellent! Financial discipline is strong this month.")
+
+# 3) Highlight most expensive category + recommend reduction target
+high_cat = max_cat
+high_value = max_cat_val
+suggestions.append(f"💡 Cut {high_cat} category by 10-20% — saves approx ₹{high_value*0.15:,.0f}/month.")
+
+# 4) If daily burn is high
+month_days = datetime.now().day
+ideal_daily = expected_income/30
+
+if daily_avg > ideal_daily:
+    suggestions.append(f"⛔ Daily spend above healthy range. Target ≤ ₹{ideal_daily:,.0f}/day.")
+else:
+    suggestions.append("👍 Daily burn level is within safe financial zone.")
+
+# 5) Category Variance Alert (spike detection)
+cat_spend = filtered.groupby("category")["amount"].sum()
+mean_spend = cat_spend.mean()
+high_spenders = cat_spend[cat_spend > mean_spend*1.4]  # >40% above avg
+
+for c,v in high_spenders.items():
+    suggestions.append(f"⚡ {c} spend unusually high — optimize or set limit next month.")
+
+# -------- Display Suggestions --------
+for s in suggestions:
+    st.write(s)
 
 
 
