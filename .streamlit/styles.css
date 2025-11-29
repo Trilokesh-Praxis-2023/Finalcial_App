@@ -1,27 +1,36 @@
-/* =========================================================
-   👑 ROYAL BLACK + GOLD UI — Premium Finance Dashboard
-   Designed for KPI Analytics & Wealth Interface
-   ========================================================= */
+/* =======================================================================
+    👑 ROYAL BLACK + GOLD PREMIUM THEME — FINANCE ANALYTICS DASHBOARD UI
+    — Cleaned, Structured & Documented Version —
+   ======================================================================= */
 
+/* ===============================================================
+   🎨 COLOR TOKENS & GLOBAL VARIABLES
+   Modify these to restyle full UI instantly
+   =============================================================== */
 :root{
-    --bg:#0e0e10;
-    --gold:#FFB800;
-    --gold-soft:#FFE4AE;
-    --gold-glow:#FFD36A;
-    --card:#141414;
-    --radius:16px;
+    --bg:#0e0e10;         /* Page background */
+    --gold:#FFB800;       /* Highlight primary color */
+    --gold-soft:#FFE4AE;  /* Softer gold for text/subtles */
+    --gold-glow:#FFD36A;  /* Glow FX for UI hover */
+    --card:#141414;       /* Core panel/card layer surface */
+    --radius:16px;        /* Global rounded border radius */
 }
 
-/* --------- APP BACKGROUND --------- */
+
+/* ===============================================================
+   🌑 APPLICATION BACKGROUND & BASE TYPOGRAPHY
+   =============================================================== */
 .stApp{
     background:linear-gradient(180deg,#0c0c0e,#131418,#0a0a0b);
     font-family:"Poppins",sans-serif;
     color:#fff !important;
 }
 
-/* =========================================================
-   KPI CARDS — BLACK GLASS + ROYAL GOLD ACCENTS
-   ========================================================= */
+
+/* =======================================================================
+   🔥 KPI CARDS — Metallic Black/Gold Finance Panels
+   Streamlit Metric Cards Styling
+   ======================================================================= */
 [data-testid="stMetric"]{
     background:var(--card);
     border-radius:var(--radius);
@@ -31,22 +40,23 @@
     transition:.32s ease;
 }
 
+/* Hover → More Royal, More Glow */
 [data-testid="stMetric"]:hover{
     transform:scale(1.055);
     box-shadow:0 0 30px rgba(255,185,0,0.55);
     border-color:var(--gold);
 }
 
-/* Metric Value / Numbers */
+/* 🔢 Metric Numeric Value */
 [data-testid="stMetric"] > div > div{
     color:var(--gold);
     font-size:1.78rem !important;
     font-weight:700;
     letter-spacing:0.6px;
-    animation: numberFade 1.4s ease-out;
+    animation:numberFade 1.4s ease-out;
 }
 
-/* KPI Title */
+/* 💠 Metric Title Label */
 span[data-testid="stMetricLabel"]{
     color:var(--gold-soft);
     font-size:0.85rem;
@@ -54,20 +64,26 @@ span[data-testid="stMetricLabel"]{
     text-transform:uppercase;
 }
 
-/* Fade in animation for KPI cards */
+
+/* Fade Animation for Metric Appearance */
 @keyframes numberFade{
     0%{opacity:0;transform:translateY(8px);filter:blur(6px);}
     100%{opacity:1;transform:translateY(0);}
 }
 
-/* Highlight Indicators */
-.good{border-left:5px solid #00ff7b; box-shadow:0 0 18px #00ff7a45;}
-.warn{border-left:5px solid #ffd944; box-shadow:0 0 18px #ffd94455;}
-.bad{border-left:5px solid #ff4a4a; box-shadow:0 0 18px #ff4a4a55;}
 
-/* =========================================================
-    BUTTONS — GOLD METALLIC TACTILE FEEL 
-   ========================================================= */
+/* =======================================================================
+   📊 STATUS COLOR INDICATORS (Optional Usage)
+   Add class → good | warn | bad to card wrappers
+   ======================================================================= */
+.good { border-left:5px solid #00ff7b; box-shadow:0 0 18px #00ff7a45; }
+.warn { border-left:5px solid #ffd944; box-shadow:0 0 18px #ffd94455; }
+.bad  { border-left:5px solid #ff4a4a; box-shadow:0 0 18px #ff4a4a55; }
+
+
+/* =======================================================================
+   🔘 GOLD TACTILE BUTTONS — Glow + Lift On Hover
+   ======================================================================= */
 .stButton > button{
     background:linear-gradient(135deg,#FFBD00,#FFD96B);
     color:#000;
@@ -75,7 +91,7 @@ span[data-testid="stMetricLabel"]{
     font-weight:600;
     border-radius:var(--radius);
     border:none;
-    transition:.28s ease-in-out;
+    transition:.28s ease;
 }
 
 .stButton > button:hover{
@@ -84,20 +100,20 @@ span[data-testid="stMetricLabel"]{
 }
 
 
-/* =========================================================
-    SCROLLBAR — GOLDEN TRACK POLISH
-   ========================================================= */
-::-webkit-scrollbar{width:9px;}
+/* =======================================================================
+   🏛 SCROLLBAR — Gold Track for Dark UI Elegance
+   ======================================================================= */
+::-webkit-scrollbar{ width:9px; }
 ::-webkit-scrollbar-thumb{
     background:var(--gold);
     border-radius:20px;
 }
 
 
-/* =========================================================
-   OPTIONAL SECTION HEADINGS / TITLES
-   ========================================================= */
-h1,h2,h3 {
+/* =======================================================================
+   🏷 SECTION HEADERS — Glow Golden Titles
+   ======================================================================= */
+h1, h2, h3 {
     color:var(--gold-soft) !important;
     text-shadow:0 0 14px rgba(255,200,60,0.3);
 }
