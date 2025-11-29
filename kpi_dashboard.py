@@ -154,11 +154,14 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     days_left = max(days_total - today_day,1)
 
     daily_limit = left/days_left
+    ideal_per_day = MONTHLY_BUDGET -  12800 
 
-    c6_1,c6_2,c6_3 = st.columns(3)
+
+    c6_1,c6_2,c6_3,c6_4 = st.columns(4)
     c6_1.metric("💰 Budget Left",f"₹{left:,.0f}")
     c6_2.metric("📅 Days Left",f"{days_left} days")
     c6_3.metric("⚡ Daily Allowed",f"₹{daily_limit:,.0f}/day")
+    c6_4.metric("🏁 Ideal Spend Per Day",f"₹{ideal_per_day:,.0f}")
 
     # ===================================================================
     # 🔹 CATEGORY SHARE TABLE (fixed)
