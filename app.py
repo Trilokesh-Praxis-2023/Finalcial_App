@@ -252,52 +252,31 @@ a4.metric("🔥 Lifetime Income Burn %", f"{income_burn:.1f}%",
           "🟢 Good" if income_burn<75 else "🟡 High" if income_burn<100 else "🔴 Critical")
 
 # =================================================
-# 🔹 ROW 6 — Budget Left + Daily Spend Limit
+# 🔹 ROW 6 — REAL BUDGET LEFT + DAILY SPEND LIMIT
 # =================================================
 
-fixed_A = 11600
-fixed_B = 1900
-total_fixed = fixed_A + fixed_B
-flex_budget = MONTHLY_BUDGET - total_fixed   # money left to spend freely
-
-# days passed in month
-today_day = today.day
-days_in_month = pd.to_datetime(today.replace(day=28) + pd.Timedelta(days=4)).day
-days_left = max(days_in_month - today_day, 1)
-
-per_day_budget = flex_budget / days_left
-
+# Monthly Numbers
 spent_so_far = current_month_total
 budget_left = MONTHLY_BUDGET - spent_so_far
 
+# Days left this month
+today_day = today.day
+days_in_month = pd.Period(today, freq='M').days_in_month   # auto month end
+days_left = max(days_in_month - today_day, 1)              # avoid zero division
+
+daily_limit = budget_left / days_left                      # updated logic
+
 burn_pct = (spent_so_far / MONTHLY_BUDGET * 100) if MONTHLY_BUDGET>0 else 0
 
+c6_1, c6_2, c6_3 = st.columns(3)
 
-b1, b2, b3, b4 = st.columns(4)
+c6_1.metric("💰 Budget Remaining (This Month)", f"₹{budget_left:,.0f}",
+           "🟢 Good" if budget_left>6000 else "🟡 Low" if budget_left>0 else "🔴 Over")
 
-b1.metric("🏦 Monthly Budget", f"₹{MONTHLY_BUDGET:,}")
-b2.metric("🧾 Fixed Expense (Monthly)", f"₹{total_fixed:,}")
+c6_2.metric("📆 Days Remaining in Month", f"{days_left} days")
 
-b3.metric("🔸 Flexible Left to Spend", 
-         f"₹{flex_budget:,}", 
-         "🟢 OK" if flex_budget>0 else "🔴 Over Fixed Budget")
-
-b4.metric("📆 Daily Spend Limit", 
-         f"₹{per_day_budget:,.0f}/day",
-         "🟢 Safe" if per_day_budget>200 else "🟡 Tight" if per_day_budget>0 else "🔴 ZERO")
-
-
-# -------- Budget Left vs Expense --------
-
-r7c1, r7c2 = st.columns(2)
-
-r7c1.metric("💰 Budget Remaining This Month", 
-           f"₹{budget_left:,.0f}", 
-           "🟢 Healthy" if budget_left>5000 else "🟡 Low" if budget_left>0 else "🔴 Overspent")
-
-r7c2.metric("🔥 Budget Burn %", 
-           f"{burn_pct:.1f}%", 
-           "🟢 Good" if burn_pct<60 else "🟡 High" if burn_pct<100 else "🔴 Exceeded")
+c6_3.metric("⚡ Daily Spend Allowed Now", f"₹{daily_limit:,.0f}/day",
+           "🟢 Healthy" if daily_limit>400 else "🟡 Caution" if daily_limit>100 else "🔴 Tight")
 
 
 
