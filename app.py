@@ -232,6 +232,58 @@ st.metric("📆 Days Tracked", f"{active_days} days")
 
 
 # =================================================
+# 📊 KPI DRILLDOWN – EXPAND TO VIEW TREND HISTORY
+# =================================================
+st.subheader("📈 KPI Trend Insights (Click to Expand)")
+
+monthly_expense = df.groupby("year_month")["amount"].sum().reset_index()
+monthly_expense["year_month"] = pd.to_datetime(monthly_expense["year_month"])
+
+# 📌 1. Total Spend Trend
+with st.expander("💸 Total Spend – Historical Trend"):
+    st.line_chart(monthly_expense.set_index("year_month")["amount"])
+    st.write("Shows cumulative trend of total spending over time.")
+
+# 📌 2. Avg Monthly Spend Trend
+with st.expander("📅 Avg Monthly Spend – Evolution Over Time"):
+    monthly_avg_trend = monthly_expense["amount"].rolling(3).mean()  # smooth trend
+    st.line_chart(monthly_avg_trend)
+    st.write("3-month rolling average smooths spikes. Good for long-term spending behavior.")
+
+# 📌 3. Current Month vs Last 12 Months
+with st.expander("📆 Month-on-Month Spend"):
+    st.bar_chart(monthly_expense.set_index("year_month")["amount"])
+    st.write("Compare current month spend against last 12 months.")
+
+# 📌 4. Category Performance Over Time
+with st.expander("🏷 Category Trend Over Time"):
+    cat_m = df.groupby(["year_month","category"])["amount"].sum().reset_index()
+    cat_m["year_month"] = pd.to_datetime(cat_m["year_month"])
+
+    import altair as alt
+    cat_chart = alt.Chart(cat_m).mark_line(point=True).encode(
+        x="year_month:T",
+        y=alt.Y("amount:Q", scale=alt.Scale(type="log")), # Normalised – no dominance
+        color="category:N",
+        tooltip=["year_month","category","amount"]
+    )
+    st.altair_chart(cat_chart, use_container_width=True)
+    st.write("Uses log-scale so all categories are visible even if differences are huge.")
+
+# 📌 5. Income vs Expense Trend
+with st.expander("💰 Income vs Expense History"):
+    inc = []    # historical detected income projection
+    for m in monthly_expense["year_month"]:
+        inc.append(get_income(m))
+    monthly_expense["income"] = inc
+    monthly_expense["net_savings"] = monthly_expense["income"] - monthly_expense["amount"]
+
+    st.area_chart(monthly_expense.set_index("year_month")[["amount","income","net_savings"]])
+    st.write("Tracks how expenses compete against income and how savings fluctuate.")
+
+
+
+# =================================================
 # 🧠 SMART SPEND REDUCTION ADVISOR (FILTER SAFE)
 # =================================================
 st.subheader("🧠 Smart Spend Reduction Suggestions")
