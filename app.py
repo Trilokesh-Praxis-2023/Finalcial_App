@@ -12,6 +12,18 @@ from datetime import datetime
 from kpi_dashboard import render_kpis, get_income
 from kpi_drilldown import render_kpi_suite
 
+import threading, time, requests, os
+
+def keep_alive():
+    url = os.getenv("APP_URL")  # add your Streamlit URL in .env
+    while True:
+        try:
+            requests.get(url)
+        except:
+            pass
+        time.sleep(300)  # ping every 5 mins
+
+threading.Thread(target=keep_alive, daemon=True).start()
 
 # ============================================================
 # ⬛ PAGE CONFIG + TITLE
