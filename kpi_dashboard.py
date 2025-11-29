@@ -141,7 +141,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     i2.metric("📊 Balance Left", f"₹{balance:,.0f}")
     i3.metric("💾 Savings Rate", f"{save_rate:.1f}%")
     i4.metric("⚡ % Spent",f"{pct:.1f}%",status)
-
+    
     # ===================================================================
     # 🔹 ROW 5 — BUDGET SURVIVAL
     # ===================================================================
@@ -156,15 +156,18 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     days_total = pd.Period(today,freq="M").days_in_month
     days_left  = max(days_total - today.day, 1)
 
-    daily_limit   = left / days_left                # recommended remaining spend/day
-    ideal_per_day = (18000 - 12800) / days_total          # <-- your formula exactly
+    daily_limit   = left / days_left                    # how much you can spend per day from now
+    ideal_per_day = (18000 - 12800) / days_total        # your custom formula distributed across month
 
-    c6_1, c6_2, c6_3, c6_4 = st.columns(4)
+    # 💾 DAILY SAVING REQUIRED TO STAY SAFE
+    save_per_day = ideal_per_day - daily_limit          # 🔥 THIS IS THE NEW VALUE
+
+    c6_1, c6_2, c6_3, c6_4, c6_5 = st.columns(5)
     c6_1.metric("💰 Budget Left", f"₹{left:,.0f}")
     c6_2.metric("📅 Days Left", f"{days_left} days")
-    c6_3.metric("⚡ Daily Allowed", f"₹{daily_limit:,.0f}/day")
-    c6_4.metric("🏁 Ideal Spend/Day", f"₹{ideal_per_day:,.0f}")  # <-- Now visible
-
+    c6_3.metric("⚡ Allowed Per Day", f"₹{daily_limit:,.0f}/day")
+    c6_4.metric("🏁 Ideal/Day", f"₹{ideal_per_day:,.0f}")
+    c6_5.metric("💾 Save/Day Needed", f"₹{save_per_day:,.0f}")   # 🔥 NEW METRIC SHOWN
 
     # ===================================================================
     # 🔹 CATEGORY SHARE TABLE (fixed)
