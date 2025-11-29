@@ -202,26 +202,59 @@ except Exception as e:
     st.error("Could not load delete records")
     st.code(e)
 
-
 # ============================================================
-# 🔮 FORECASTING
+# 🔮 FORECASTING MODULE — MONTHLY + DAILY PREDICTION
 # ============================================================
 st.markdown("<h3>🔮 Forecasting & Prediction</h3>", unsafe_allow_html=True)
 
-if st.button("Generate 6-Month Forecast"):
+# ----------------------------------------------------------
+# MONTHLY FORECAST — NEXT 6 MONTHS
+# ----------------------------------------------------------
+if st.button("📅 Predict Next 6 Months"):
+    
+    monthly_series = filtered.groupby("year_month")["amount"].sum().reset_index()
 
-    series = filtered.groupby("year_month")["amount"].sum().reset_index()
-    if len(series) < 3:
-        st.warning("⚠ Need min 3 months data")
+    if len(monthly_series) < 3:
+        st.warning("⚠ Need minimum 3 months of data for monthly forecasting.")
     else:
-        series["ds"] = pd.to_datetime(series.year_month)
-        series.rename(columns={"amount":"y"}, inplace=True)
+        monthly_series["ds"] = pd.to_datetime(monthly_series.year_month)
+        monthly_series.rename(columns={"amount": "y"}, inplace=True)
 
-        model = Prophet()
-        model.fit(series[["ds","y"]])
-        future = model.make_future_dataframe(periods=6, freq="ME")
-        pred = model.predict(future)
+        m_model = Prophet()
+        m_model.fit(monthly_series[["ds","y"]])
 
-        st.line_chart(pred.set_index("ds")["yhat"])
-        st.dataframe(pred.tail(6)[["ds","yhat","yhat_lower","yhat_upper"]])
-        st.success("Forecast Ready 📈")
+        future_m = m_model.make_future_dataframe(periods=6, freq="ME")
+        forecast_m = m_model.predict(future_m)
+
+        st.success("📈 6-Month Forecast Generated!")
+        st.line_chart(forecast_m.set_index("ds")["yhat"])
+        st.dataframe(forecast_m.tail(6)[["ds","yhat","yhat_lower","yhat_upper"]]
+                     .rename(columns={"ds":"Month","yhat":"Prediction"}))
+
+
+st.markdown("---")  # divider line for premium separation
+
+
+# ----------------------------------------------------------
+# DAILY FORECAST — NEXT 30 DAYS
+# ----------------------------------------------------------
+if st.button("📆 Predict Next 30 Days (Daily)"):
+
+    daily_series = filtered.groupby("period")["amount"].sum().reset_index()
+
+    if len(daily_series) < 7:
+        st.warning("⚠ Need minimum 7 days of data for daily forecasting.")
+    else:
+        daily_series["ds"] = pd.to_datetime(daily_series["period"])
+        daily_series.rename(columns={"amount":"y"}, inplace=True)
+
+        d_model = Prophet(daily_seasonality=True)
+        d_model.fit(daily_series[["ds","y"]])
+
+        future_d = d_model.make_future_dataframe(periods=30, freq="D")
+        forecast_d = d_model.predict(future_d)
+
+        st.success("📆 30-Day Daily Forecast Ready!")
+        st.line_chart(forecast_d.set_index("ds")["yhat"])
+        st.dataframe(forecast_d.tail(30)[["ds","yhat","yhat_lower","yhat_upper"]]
+                     .rename(columns={"ds":"Date","yhat":"Predicted"}))
