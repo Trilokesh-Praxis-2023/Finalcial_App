@@ -146,22 +146,25 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     # 🔹 ROW 5 — BUDGET SURVIVAL
     # ===================================================================
     st.markdown("### 💼 Budget Survival Tracker")
+
+    today = pd.Timestamp.today()
+    current_month_total = filtered[filtered.year_month == today.strftime("%Y-%m")]["amount"].sum()
+
     spent = current_month_total
-    left = MONTHLY_BUDGET - spent
+    left  = MONTHLY_BUDGET - spent
 
-    today_day = today.day
     days_total = pd.Period(today,freq="M").days_in_month
-    days_left = max(days_total - today_day,1)
+    days_left  = max(days_total - today.day, 1)
 
-    daily_limit = left/days_left
-    ideal_per_day = MONTHLY_BUDGET -  12800 
+    daily_limit   = left / days_left                # recommended remaining spend/day
+    ideal_per_day = 18000 - 12800          # <-- your formula exactly
 
+    c6_1, c6_2, c6_3, c6_4 = st.columns(4)
+    c6_1.metric("💰 Budget Left", f"₹{left:,.0f}")
+    c6_2.metric("📅 Days Left", f"{days_left} days")
+    c6_3.metric("⚡ Daily Allowed", f"₹{daily_limit:,.0f}/day")
+    c6_4.metric("🏁 Ideal Spend/Day", f"₹{ideal_per_day:,.0f}")  # <-- Now visible
 
-    c6_1,c6_2,c6_3,c6_4 = st.columns(4)
-    c6_1.metric("💰 Budget Left",f"₹{left:,.0f}")
-    c6_2.metric("📅 Days Left",f"{days_left} days")
-    c6_3.metric("⚡ Daily Allowed",f"₹{daily_limit:,.0f}/day")
-    c6_4.metric("🏁 Ideal Spend Per Day",f"₹{ideal_per_day:,.0f}")
 
     # ===================================================================
     # 🔹 CATEGORY SHARE TABLE (fixed)
