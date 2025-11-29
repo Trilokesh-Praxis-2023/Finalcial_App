@@ -767,41 +767,6 @@ except Exception as e:
     st.error(f"❌ Failed to load transaction table:\n{e}")
 
 
-# =================================================
-# 📊 ANALYTICS DASHBOARD
-# =================================================
-st.divider()
-st.header("📊 Insights & Analysis")
-
-
-# =================================================
-# 💰 Monthly Budget Monitor (Updated + Sorted + Clean Format)
-# =================================================
-st.divider()
-st.header("💰 Monthly Budget Monitor")
-
-# Group monthly spend
-b = filtered.groupby("year_month")["amount"].sum().reset_index()
-
-# Convert YYYY-MM → Pretty Month Format (Nov 2025)
-b["Month"] = pd.to_datetime(b["year_month"]).dt.strftime("%b %Y")
-
-# Status Evaluation
-b["Status"] = b["amount"].apply(lambda x: "🚨 Over Budget" if x > MONTHLY_BUDGET else "🟢 Within Limit")
-b["Remaining / Excess"] = b["amount"].apply(
-    lambda x: f"-₹{x-MONTHLY_BUDGET:,.0f}" if x>MONTHLY_BUDGET else f"+₹{MONTHLY_BUDGET-x:,.0f}"
-)
-
-# Sort latest month first
-b = b.sort_values("year_month", ascending=False)
-
-# Display clean table
-st.dataframe(
-    b[["Month","amount","Status","Remaining / Excess"]],
-    width="stretch", height=260
-)
-
-
 
 # =================================================
 # 🔮 FORECASTING SECTION (MONTH + DAY)
