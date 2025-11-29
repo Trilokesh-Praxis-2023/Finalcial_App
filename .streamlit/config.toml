@@ -1,6 +1,9 @@
 [theme]
-primaryColor="#00E676"
-backgroundColor="#0A0F14"
-secondaryBackgroundColor="#11161E"
-textColor="#E0E0E0"
+primaryColor="#00E676"                # Neon Green Accent
+backgroundColor="#080C11"             # Slightly deeper background for contrast
+secondaryBackgroundColor="#111820"    # Card/Container background
+textColor="#E4E9ED"                   # Smooth grey-white text
 font="sans serif"
+
+# --- Optional Aesthetic Add-ons ---
+base="dark"                           # Enables automatic dark-base optimization
