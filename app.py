@@ -85,42 +85,55 @@ st.success("🔓 Access Granted")
 
 
 # =================================================
-# ➕ ADD EXPENSE ENTRY WITH MONTH + % + RUNNING TOTAL (FINAL FIX)
+# 🔥 ADD EXPENSE ENTRY — Clean UI + Better Structure + UX Upgrades
 # =================================================
-with st.expander("➕ Add Expense"):
-    with st.form("expense_form"):
-        d = st.date_input("Date")
-        acc = st.text_input("Account / UPI / Card")
-        cat = st.selectbox("Category", CATEGORIES)
-        amt = st.number_input("Amount", min_value=0.0, step=1.0)
-        submit = st.form_submit_button("💾 Save Entry")
+st.markdown("### ➕ Add New Expense Record")
+
+with st.expander("Add Expense"):
+    
+    with st.form("expense_form", clear_on_submit=True):
+        st.write("Enter your transaction details below 👇")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            d = st.date_input("📅 Date")
+            cat = st.selectbox("📂 Category", CATEGORIES)
+
+        with col2:
+            acc = st.text_input("🏦 Account / UPI / Card")
+            amt = st.number_input("💰 Amount", min_value=0.0, step=1.0)
+
+        st.markdown("---")
+        submit = st.form_submit_button("💾 Save Expense", use_container_width=True)
 
     if submit:
-
+        # --- Month Processing
         month_value = pd.to_datetime(d).strftime("%Y-%m")
 
+        # --- Running Total Logic
         current_total = df["amount"].sum() if not df.empty else 0
         new_running_total = current_total + float(amt)
-
         row_percent = (float(amt) / new_running_total) * 100
 
         try:
             df_new = pd.DataFrame([{
-                "period": pd.to_datetime(d),
-                "accounts": acc,
-                "category": cat,
-                "amount": float(amt),
-                "month": month_value,
-                "percent_row": row_percent,        # 💥 FIXED — no % symbol
-                "running_total": new_running_total # 💥 FIXED — no space
+                "period"        : pd.to_datetime(d),
+                "accounts"      : acc.title(),      # 🔥 Cleaner Text
+                "category"      : cat,
+                "amount"        : float(amt),
+                "month"         : month_value,
+                "percent_row"   : round(row_percent, 2),
+                "running_total" : new_running_total
             }])
 
             df_new.to_sql("finance_data", engine, if_exists="append", index=False)
             load_data.clear()
-            st.success("✔ Expense Saved Successfully")
+
+            st.success(f"✔ Saved — ₹{amt:.0f} added to **{cat}** ({row_percent:.2f}%)")
+            st.balloons()  # 🎉 Feel-good UX
 
         except Exception as e:
-            st.error(f"❌ Upload Failed:\n{e}")
+            st.error(f"❌ Failed to Upload:\n{e}")
 
 
 
