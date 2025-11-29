@@ -257,171 +257,124 @@ a4.metric("🔥 Spend % of Earnings", f"{income_usage_pct:.1f}%",
 
 
 
-
-
-
-
 # =================================================
-# 📊 KPI DRILLDOWN – DEEP INSIGHTS + HISTORICAL ANALYSIS
+# 📊 KPI DRILLDOWN – FILTER RESPONSIVE INSIGHTS
 # =================================================
-st.subheader("📈 KPI Trend Insights (Click to Expand for Deep Analysis)")
+st.subheader("📈 KPI Trend Insights (Dynamic Based on Filters)")
 
-# master monthly table
-monthly_expense = df.groupby("year_month")["amount"].sum().reset_index()
-monthly_expense["year_month"] = pd.to_datetime(monthly_expense["year_month"])
-monthly_expense = monthly_expense.sort_values("year_month")
+# ---------------- KEY CHANGE -----------------
+source = filtered.copy()   # <— NOW all charts use filtered, not full df
+# ----------------------------------------------
 
-# historical income + savings
-income_hist = [get_income(m) for m in monthly_expense["year_month"]]
-monthly_expense["income"] = income_hist
-monthly_expense["savings"] = monthly_expense["income"] - monthly_expense["amount"]
+
+# ===== Monthly compute from filtered =====
+monthly = source.groupby("year_month")["amount"].sum().reset_index()
+monthly["year_month"] = pd.to_datetime(monthly["year_month"])
+monthly = monthly.sort_values("year_month")
+
+# attach income + savings for each month
+monthly["income"] = [get_income(m) for m in monthly["year_month"]]
+monthly["savings"] = monthly["income"] - monthly["amount"]
 
 
 # =========================================================
 # 1️⃣ Monthly Total Spend Trend
 # =========================================================
-with st.expander("💸 Total Spend Trend Analysis"):
-    st.line_chart(monthly_expense.set_index("year_month")["amount"])
-    st.write("""
-    **Insight**: Shows how your spending evolved monthly.
-    🔥 Look for rising slope → habits changing  
-    🟢 Flat/stable curve → controlled expenses
-    """)
+with st.expander("💸 Total Spend Trend (Filtered View)"):
+    st.line_chart(monthly.set_index("year_month")["amount"])
+    st.write("Trend updates based on selected filters.")
 
 
 # =========================================================
-# 2️⃣ Avg Monthly Spend Trend (Behaviour Stability)
+# 2️⃣ Avg Monthly Spend Trend (Stability)
 # =========================================================
-with st.expander("📅 Avg Monthly Spend Behaviour"):
-    st.line_chart(monthly_expense["amount"].rolling(3).mean())
-    st.write("""
-    **3-Month Rolling Average** smooths the noise.
-    ✔ Helps identify behaviour patterns  
-    ⚡ Good for long-term financial discipline tracking
-    """)
+with st.expander("📅 Avg Monthly Spend (Behavior Smoothened)"):
+    st.line_chart(monthly["amount"].rolling(3).mean())
+    st.write("3-month rolling helps highlight long-term pattern.")
 
 
 # =========================================================
-# 3️⃣ Month-on-Month Comparison (Seasonality Detection)
+# 3️⃣ Month-on-Month Comparison
 # =========================================================
-with st.expander("📆 Month-on-Month Spend Distribution"):
-    st.bar_chart(monthly_expense.set_index("year_month")["amount"])
-    st.write("""
-    Shows seasonality and festival-based spikes.
-    💡 Compare peaks like December, Vacation time, Festivals.
-    """)
+with st.expander("📆 Month-on-Month Comparison"):
+    st.bar_chart(monthly.set_index("year_month")["amount"])
+    st.write("Check filtered category/account/month impact.")
 
 
 # =========================================================
-# 4️⃣ Category Trend Over Time (Normalised insight)
+# 4️⃣ Category Trend Over Time — Normalised Visibility
 # =========================================================
-with st.expander("🏷 Category Trend Evolution (Normalised for Visibility)"):
-    cat = df.groupby(["year_month","category"])["amount"].sum().reset_index()
+with st.expander("🏷 Category Trend Over Time (Filtered)"):
+    cat = source.groupby(["year_month","category"])["amount"].sum().reset_index()
     cat["year_month"] = pd.to_datetime(cat["year_month"])
 
-    cat_chart = (
-        alt.Chart(cat).mark_line(point=True).encode(
-            x="year_month:T",
-            y=alt.Y("amount:Q", scale=alt.Scale(type="log")),   # log = visibility for all
-            color="category:N",
-            tooltip=["year_month","category","amount"]
-        )
+    chart = alt.Chart(cat).mark_line(point=True).encode(
+        x="year_month:T",
+        y=alt.Y("amount:Q", scale=alt.Scale(type="log")),
+        color="category:N",
+        tooltip=["year_month","category","amount"]
     )
-    st.altair_chart(cat_chart, use_container_width=True)
-
-    st.write("""
-    **Log scale** helps visualize small vs large categories together.
-    🔥 Identify which category is climbing the fastest.
-    """)
+    st.altair_chart(chart, use_container_width=True)
 
 
 # =========================================================
-# 5️⃣ Income vs Expense & Net Savings Trajectory
+# 5️⃣ Income vs Expense & Savings Trend
 # =========================================================
-with st.expander("💰 Income vs Expense & Savings Trend"):
-    st.area_chart(monthly_expense.set_index("year_month")[["income","amount","savings"]])
-    st.write("""
-    💰 Income — Green  
-    🔥 Expense — Red  
-    🟢 Savings — Gap between them
-
-    A shrinking gap = overspending risk.
-    """)
+with st.expander("💰 Income vs Expense + Net Savings (Filtered)"):
+    st.area_chart(monthly.set_index("year_month")[["income","amount","savings"]])
 
 
 # =========================================================
-# 6️⃣ Savings Health Indicator (Trend Based)
+# 6️⃣ Savings Trend
 # =========================================================
 with st.expander("🧾 Savings Trend – Growth or Leakage?"):
-    st.line_chart(monthly_expense.set_index("year_month")["savings"])
-    st.write("""
-    Tracks how well you are growing wealth.
-    🟢 Upward trend = strong discipline  
-    🔴 Downward slope = lifestyle inflation risk
-    """)
+    st.line_chart(monthly.set_index("year_month")["savings"])
 
 
 # =========================================================
-# 7️⃣ Spend Volatility (Risk of Financial Instability)
+# 7️⃣ Volatility Score (Spending Risk)
 # =========================================================
-import numpy as np
-with st.expander("🌡 Spend Volatility Index (Risk Score)"):
-    if len(monthly_expense) > 2:
-        volatility = monthly_expense["amount"].pct_change().abs().mean()*100
-        stability_score = max(0,100-volatility)
-        st.metric("🧠 Stability Score", f"{stability_score:.1f}%")
-
-        st.write(f"""
-        Spend volatility → **{volatility:.2f}%**
-        🟢 >80% = Very stable  
-        🟡 50–80% = Moderate fluctuations  
-        🔴 <50% = Highly inconsistent spending
-        """)
+with st.expander("🌡 Spend Volatility Index"):
+    if len(monthly)>2:
+        vol = monthly["amount"].pct_change().abs().mean()*100
+        st.metric("Stability Score", f"{max(0,100-vol):.1f}%")
     else:
-        st.info("Need at least 3 months of data to calculate volatility.")
+        st.info("Need 3+ months of filtered data")
 
 
 # =========================================================
-# 8️⃣ Category Spend Share Breakdown (Pie Analysis)
+# 8️⃣ Category Share Breakdown
 # =========================================================
-with st.expander("📊 Category Share of Total Spend"):
-    cat_share = df.groupby("category")["amount"].sum()
-    st.bar_chart(cat_share.sort_values(ascending=False))
-
-    st.write("""
-    Shows which category consumes most of your financial bandwidth.
-    🔥 Top 1-2 categories = biggest saving opportunity.
-    """)
+with st.expander("📊 Category Share of Spend (Filtered)"):
+    share = source.groupby("category")["amount"].sum().sort_values(ascending=False)
+    st.bar_chart(share)
 
 
 # =========================================================
-# 9️⃣ Best & Worst Month Insight Box
+# 9️⃣ Best & Worst Month
 # =========================================================
-with st.expander("🏆 Best vs Worst Month (Performance Review)"):
+with st.expander("🏆 Best vs Worst Month"):
+    if len(monthly)>0:
+        high = monthly.loc[monthly["amount"].idxmax()]
+        low  = monthly.loc[monthly["amount"].idxmin()]
 
-    best_month = monthly_expense.loc[monthly_expense["amount"].idxmax()]
-    worst_month = monthly_expense.loc[monthly_expense["amount"].idxmin()]
-
-    st.write(f"""
-    🟢 **Highest Spend Month:** {best_month.year_month.strftime("%b %Y")} → **₹{best_month.amount:,.0f}**  
-    🔴 **Lowest Spend Month:** {worst_month.year_month.strftime("%b %Y")} → **₹{worst_month.amount:,.0f}**  
-    """)
-    st.write("Useful to compare lifestyle swings or festival push.")
-
-
-# =========================================================
-# 🔟 Monthly Burn Rate Survival (If No Income)
-# =========================================================
-with st.expander("🥽 Survival Duration If Income Stops"):
-    burn_rate = monthly_expense["amount"].mean()
-    if burn_rate>0:
-        months_left = (monthly_expense["income"].sum()-monthly_expense["amount"].sum())/burn_rate
-        st.metric("🛡 Survival Months (approx)", f"{months_left:.1f} months")
-        st.write("""
-        Estimates how long you can sustain your lifestyle **without income**.
-        """)
+        st.write(f"🏆 Best Month → {high.year_month:%b %Y} : ₹{high.amount:,.0f}")
+        st.write(f"🧊 Lowest Month → {low.year_month:%b %Y} : ₹{low.amount:,.0f}")
     else:
-        st.info("Insufficient data for survival estimate.")
+        st.info("No month data available for this filter")
+
+
+# =========================================================
+# 🔟 Survival Duration Based On Filtered Spend
+# =========================================================
+with st.expander("🥽 Survival Estimation If Income Stops"):
+    if monthly["amount"].mean()>0:
+        burn = monthly["amount"].mean()
+        surplus = monthly["income"].sum() - monthly["amount"].sum()
+        months_left = surplus / burn
+        st.metric("🛡 Survival Window", f"{months_left:.1f} months")
+    else:
+        st.info("Not enough data")
 
 
 
