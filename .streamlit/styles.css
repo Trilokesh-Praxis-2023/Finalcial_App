@@ -241,38 +241,44 @@ h1, h2, h3 {
     100%{opacity:0; visibility:hidden;}
 }
 /* =======================================================================
-   💹 KPI PULSE ANIMATION — Syncs with Value Refresh
+   💹 KPI PULSE — Smooth Luxury Breathing Animation
    ======================================================================= */
 
-/* Core pulsing glow */
+/* Gentle breathing pulse (default gold) */
 .kpi-pulse {
-    animation: kpiPulse 1.6s ease-out infinite;
+    animation: kpiPulse 2.8s ease-in-out infinite;
 }
 
-/* Strong pulse (if increase/positive) */
-.kpi-grow { animation: kpiPulseGreen 1.6s ease-out 3; }
+/* Green pulse — positive growth, slower + softer */
+.kpi-grow {
+    animation: kpiPulseGreen 2.4s ease-in-out 3;
+}
 
-/* Warning pulse (if decrease/negative) */
-.kpi-drop { animation: kpiPulseRed 1.6s ease-out 3; }
+/* Red pulse — decline alert, still smooth but noticeable */
+.kpi-drop {
+    animation: kpiPulseRed 2.4s ease-in-out 3;
+}
 
 
-/* GOLD AMBIENT DEFAULT PULSE */
+/* ===================== KEYFRAMES ===================== */
+
+/* GOLD BREATHING — calm, premium */
 @keyframes kpiPulse {
-    0% { transform:scale(1); text-shadow:0 0 6px rgba(255,200,60,0.45);  }
-    50% { transform:scale(1.06); text-shadow:0 0 18px rgba(255,200,60,0.8); }
-    100% { transform:scale(1); text-shadow:0 0 6px rgba(255,200,60,0.45); }
+    0%   { transform:scale(1);      text-shadow:0 0 5px rgba(255,210,80,.35);  }
+    50%  { transform:scale(1.04);   text-shadow:0 0 16px rgba(255,210,80,.75); }
+    100% { transform:scale(1);      text-shadow:0 0 5px rgba(255,210,80,.35);  }
 }
 
-/* GREEN PULSE — for growing KPI values */
+/* GREEN GROWTH — smoother expansion */
 @keyframes kpiPulseGreen {
-    0% { color:#7bffb3; transform:scale(1); }
-    50% { color:#00ff85; text-shadow:0 0 24px #00ff9150; transform:scale(1.11); }
-    100% { color:#7bffb3; }
+    0%   { color:#88ffcc; transform:scale(1); }
+    50%  { color:#00ff99; text-shadow:0 0 22px rgba(0,255,150,.55); transform:scale(1.09); }
+    100% { color:#88ffcc; }
 }
 
-/* RED PULSE — for decreasing KPI values */
+/* RED DECLINE — softer but still alerting */
 @keyframes kpiPulseRed {
-    0% { color:#ff9696; transform:scale(1); }
-    50% { color:#ff4d4d; text-shadow:0 0 24px #ff4d4d80; transform:scale(1.11); }
-    100% { color:#ff9696; }
+    0%   { color:#ff9a9a; transform:scale(1); }
+    50%  { color:#ff4d4d; text-shadow:0 0 22px rgba(255,80,80,.55); transform:scale(1.09); }
+    100% { color:#ff9a9a; }
 }
