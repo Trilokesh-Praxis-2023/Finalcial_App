@@ -7,9 +7,16 @@ from io import BytesIO
 import altair as alt
 import os
 from sqlalchemy import text
-# Load external CSS
-with open("styles.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+import os
+
+css_path = ".streamlit\styles.css"  # you can change folder later
+
+if os.path.exists(css_path):
+    with open(css_path) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+else:
+    st.warning("⚠ styles.css not found — UI theme not loaded")
+
 
 
 # =================================================
