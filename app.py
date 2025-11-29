@@ -94,18 +94,6 @@ if f_cat:   filtered = filtered[filtered.category.isin(f_cat)]
 if f_acc:   filtered = filtered[filtered.accounts.isin(f_acc)]
 
 
-# ============================================================
-# 🔥 KPI SUMMARY CARDS
-# ============================================================
-total_spend = filtered.amount.sum()
-avg_spend   = filtered.amount.mean()
-txn_count   = filtered.shape[0]
-last_txn    = filtered.period.max()
-
-col1, col2, col3 = st.columns(3)
-col1.markdown(f"<div class='card kpi'><div class='value'>₹{total_spend:,.0f}</div><span>Total Spend</span></div>", unsafe_allow_html=True)
-col2.markdown(f"<div class='card kpi'><div class='value'>₹{avg_spend:,.0f}</div><span>Avg Spend</span></div>", unsafe_allow_html=True)
-col3.markdown(f"<div class='card kpi'><div class='value'>{txn_count}</div><span>Transactions</span></div>", unsafe_allow_html=True)
 
 
 # ============================================================
