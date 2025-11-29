@@ -1,4 +1,13 @@
 import streamlit as st
+# Inject GOLD WAVE LOADER HTML+CSS
+st.markdown("""
+<div id="gold-loader">
+    <div class="gold-wave"></div>
+    <div class="gold-wave"></div>
+    <div class="gold-wave"></div>
+</div>
+""", unsafe_allow_html=True)
+
 import pandas as pd
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv

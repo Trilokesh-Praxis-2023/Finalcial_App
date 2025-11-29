@@ -190,3 +190,53 @@ h1, h2, h3 {
     color: var(--gold-soft) !important;
     text-shadow: 0 0 14px rgba(255,200,60,0.3);
 }
+
+/* =======================================================================
+   ⚡ GOLD WAVE PAGE LOADER — Royal Entry Animation
+   ======================================================================= */
+
+#gold-loader {
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background: #0b0b0d;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:99999;
+    animation:fadeOut 1.8s ease forwards;
+    animation-delay:1.6s;
+}
+
+/* Gold Wave Rings */
+.gold-wave {
+    width:90px; height:90px;
+    border-radius:50%;
+    border:4px solid rgba(255,184,0,0.35);
+    position:absolute;
+    animation:wave 1.6s infinite ease-out;
+}
+
+.gold-wave:nth-child(2){
+    animation-delay:0.25s;
+    width:60px; height:60px;
+    border-color:rgba(255,204,60,0.55);
+}
+
+.gold-wave:nth-child(3){
+    animation-delay:0.55s;
+    width:30px; height:30px;
+    border-color:rgba(255,230,120,0.9);
+}
+
+/* WAVE EXPANSION */
+@keyframes wave{
+    0%{ transform:scale(0.4); opacity:1;}
+    100%{ transform:scale(2.8); opacity:0;}
+}
+
+/* Loader fade-out */
+@keyframes fadeOut{
+    0%{opacity:1;}
+    100%{opacity:0; visibility:hidden;}
+}
