@@ -7,6 +7,19 @@ import pandas as pd
 from datetime import datetime
 import altair as alt
 
+# =======================================================================
+#  Income Model (used in Income vs Expense section)
+# =======================================================================
+
+def get_income(date):
+    base = datetime(2024,10,1)
+    date = pd.to_datetime(date)
+    diff = (date.year-base.year)*12 + (date.month-base.month)
+
+    # You can expand this later if income changes monthly
+    return 12000 if diff==0 else 14112 if diff==1 else 24400   # <— FIXED
+
+
 # ===========================================================
 # 🔥 Sparkline generator (unchanged)
 # ===========================================================
