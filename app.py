@@ -256,166 +256,190 @@ a4.metric("🔥 Spend % of Earnings", f"{income_usage_pct:.1f}%",
          "🟢 Healthy" if income_usage_pct<75 else "🟡 Tight" if income_usage_pct<100 else "🔴 Overspent")
 
 
-# =================================================
-# 📊 KPI DRILLDOWN – FILTER RESPONSIVE + HOVER VALUES
-# =================================================
-st.subheader("📈 KPI Trend Insights (Interactive & Hover Enabled)")
+# ================================================================
+# 📊 KPI DRILLDOWN – ALL KPI CHARTS + VALUE VISUALIZATION + FILTER SAFE
+# ================================================================
+st.subheader("📈 KPI Trend & Historical Analysis (All Visible Values)")
 
 source = filtered.copy()
 
-
-# ===== Monthly summary from filtered =====
+# ============ Monthly aggregated =============
 monthly = source.groupby("year_month")["amount"].sum().reset_index()
 monthly["year_month"] = pd.to_datetime(monthly["year_month"])
 monthly = monthly.sort_values("year_month")
 
-monthly["income"]   = [get_income(m) for m in monthly["year_month"]]
-monthly["savings"]  = monthly["income"] - monthly["amount"]
+monthly["income"]  = [get_income(m) for m in monthly["year_month"]]
+monthly["savings"] = monthly["income"] - monthly["amount"]
+
+# Reusable wrapper
+def label_chart(data, x, y, color=None, log=False, height=340):
+    base = alt.Chart(data).encode(
+        x=alt.X(x, title=""),
+        y=alt.Y(y, scale=alt.Scale(type="log") if log else alt.Scale()),
+        color=color
+    )
+    return (
+        base.mark_line(point=True) +
+        base.mark_text(dy=-10, fontSize=11).encode(text=y)
+    ).properties(height=height)
 
 
 
 # =========================================================
-# 1️⃣ Monthly Spend Trend (Hover Enabled)
+# 1️⃣ Monthly Spend Trend
 # =========================================================
-with st.expander("💸 Monthly Spend Trend (Hover Enabled)"):
+with st.expander("💸 Monthly Spend Trend (Values Shown)"):
 
-    chart1 = alt.Chart(monthly).mark_line(point=True).encode(
-        x="year_month:T",
-        y="amount:Q",
-        tooltip=["year_month:T","amount:Q"]   # ← Hover values shown
-    ).properties(height=300)
-
-    st.altair_chart(chart1, use_container_width=True)
-    st.caption("ℹ Hover to view exact monthly spend")
+    st.altair_chart(label_chart(monthly,"year_month:T","amount:Q"),
+                    use_container_width=True)
 
 
 
 # =========================================================
-# 2️⃣ 3-Month Average Trend (Smoothed Behaviour)
+# 2️⃣ Month-on-Month Compare (Bars + Labels)
 # =========================================================
-with st.expander("📅 Rolling 3-Month Spend Behavior (Hover Enabled)"):
+with st.expander("📆 Month-on-Month Spend"):
 
-    monthly["rolled"] = monthly["amount"].rolling(3).mean()
+    bars = alt.Chart(monthly).mark_bar(size=35,color="#27AE60").encode(
+        x="year_month:T", y="amount:Q"
+    )
 
-    chart2 = alt.Chart(monthly).mark_line(point=True,color="#4CAF50").encode(
-        x="year_month:T",
-        y="rolled:Q",
-        tooltip=["year_month:T","rolled:Q"]
-    ).properties(height=300)
+    labels = alt.Chart(monthly).mark_text(dy=-10,fontSize=12,color="white",
+                                          fontWeight="bold").encode(
+        x="year_month:T", y="amount:Q", text="amount:Q"
+    )
 
-    st.altair_chart(chart2, use_container_width=True)
-    st.caption("📌 Smoother curve reduces short-term noise")
-
-
-
-# =========================================================
-# 3️⃣ Month-on-Month Spend Comparison
-# =========================================================
-with st.expander("📆 Month-on-Month Spend Comparison"):
-
-    chart3 = alt.Chart(monthly).mark_bar().encode(
-        x="year_month:T",
-        y="amount:Q",
-        tooltip=["year_month:T","amount:Q"]
-    ).properties(height=300)
-
-    st.altair_chart(chart3, use_container_width=True)
-    st.caption("Hover bars to compare month-wise totals")
+    st.altair_chart(bars+labels,use_container_width=True)
 
 
 
 # =========================================================
-# 4️⃣ Category Trend Over Time — Log Normalised
+# 3️⃣ Rolling 3-Month Smoothing
 # =========================================================
-with st.expander("🏷 Category Trend Over Time (Hover Enabled)"):
+with st.expander("📅 Rolling 3-Month Spend Behaviour"):
+
+    monthly["roll"] = monthly["amount"].rolling(3).mean()
+    st.altair_chart(label_chart(monthly,"year_month:T","roll:Q"),use_container_width=True)
+
+
+
+# =========================================================
+# 4️⃣ Category Trend Over Time (Log Scale + Labels)
+# =========================================================
+with st.expander("🏷 Category Trend (Longitudinal View)"):
 
     cat = source.groupby(["year_month","category"])["amount"].sum().reset_index()
     cat["year_month"] = pd.to_datetime(cat["year_month"])
 
-    chart4 = alt.Chart(cat).mark_line(point=True).encode(
-        x="year_month:T",
-        y=alt.Y("amount:Q", scale=alt.Scale(type="log")),
-        color="category:N",
-        tooltip=["year_month:T","category","amount:Q"]
-    ).properties(height=350)
-
-    st.altair_chart(chart4, use_container_width=True)
+    st.altair_chart(label_chart(cat, "year_month:T", "amount:Q",
+                                color="category:N", log=True),
+                    use_container_width=True)
 
 
 
 # =========================================================
-# 5️⃣ Income vs Expense vs Savings – Trend Dashboard
+# 5️⃣ Income vs Expense + Savings Trend (Labeled)
 # =========================================================
-with st.expander("💰 Income vs Expense + Savings (Hover Enabled)"):
+with st.expander("💰 Income vs Expense vs Savings"):
 
-    m_long = monthly.melt("year_month",value_vars=["income","amount","savings"])
-    chart5 = alt.Chart(m_long).mark_line(point=True).encode(
-        x="year_month:T",
-        y="value:Q",
-        color="variable:N",
-        tooltip=["year_month:T","variable:N","value:Q"]
-    ).properties(height=350)
-
-    st.altair_chart(chart5, use_container_width=True)
+    melt = monthly.melt("year_month",value_vars=["amount","income","savings"])
+    st.altair_chart(label_chart(melt,"year_month:T","value:Q","variable:N"),
+                    use_container_width=True)
 
 
 
 # =========================================================
-# 6️⃣ Savings Trend Indicator
+# 6️⃣ Net Savings Trend
 # =========================================================
-with st.expander("🧾 Net Savings History (Hover Enabled)"):
+with st.expander("🧾 Savings Trend (Monthly)"):
 
-    chart6 = alt.Chart(monthly).mark_area(opacity=0.6,color="#00C853").encode(
-        x="year_month:T",
-        y="savings:Q",
-        tooltip=["year_month:T","savings:Q"]
-    ).properties(height=300)
-
-    st.altair_chart(chart6, use_container_width=True)
+    st.altair_chart(label_chart(monthly,"year_month:T","savings:Q"),
+                    use_container_width=True)
 
 
 
 # =========================================================
-# 7️⃣ Spend Volatility Score
+# 7️⃣ Category Spend Share Breakdown (Labeled Bars)
 # =========================================================
-with st.expander("🌡 Volatility vs Stability Signal"):
+with st.expander("📊 Category Spend Ratio Distribution"):
+
+    share = source.groupby("category")["amount"].sum().reset_index()
+    share["percent"] = (share["amount"]/share["amount"].sum()*100).round(1)
+
+    bars = alt.Chart(share).mark_bar(color="#FFB300").encode(
+        x="category:N", y="percent:Q"
+    )
+    labels = alt.Chart(share).mark_text(dy=-8,fontSize=11,color="black",
+                                        fontWeight="bold").encode(
+        x="category:N", y="percent:Q", text="percent:Q"
+    )
+    st.altair_chart(bars+labels,use_container_width=True)
+
+
+
+# =========================================================
+# 8️⃣ Best vs Worst Month
+# =========================================================
+with st.expander("🏆 Best vs Worst Month"):
+
+    best = monthly.loc[monthly["amount"].idxmax()]
+    worst = monthly.loc[monthly["amount"].idxmin()]
+
+    st.success(f"🥇 Best → {best.year_month:%b %Y} | ₹{best.amount:,.0f}")
+    st.error  (f"🥀 Worst → {worst.year_month:%b %Y} | ₹{worst.amount:,.0f}")
+
+
+
+# =========================================================
+# 9️⃣ Volatility Index
+# =========================================================
+with st.expander("🌡 Spending Volatility Score"):
+
     if len(monthly)>2:
-        volatility = monthly["amount"].pct_change().abs().mean()*100
-        st.metric("Stability Score",f"{(100-volatility):.1f}%")
-        st.caption("Lower volatility means more predictable & stable spending")
-    else:
-        st.info("Need ≥3 months for volatility analysis")
+        vol = monthly["amount"].pct_change().abs().mean()*100
+        st.metric("Stability Score",f"{max(0,100-vol):.1f}%")
+    else: st.info("Need ≥3 months of data")
 
 
 
 # =========================================================
-# 8️⃣ Category Share Breakdown (Hover %)
+# 🔟 Survival Duration (No Income Case)
 # =========================================================
-with st.expander("📊 Category Spend Share % (Hover Enabled)"):
+with st.expander("🛡 Financial Survival Length (No Income)"):
 
-    cat_share = source.groupby("category")["amount"].sum().reset_index()
-    cat_share["percent"] = cat_share["amount"] / cat_share["amount"].sum() * 100
-
-    chart8 = alt.Chart(cat_share).mark_bar().encode(
-        x="category:N",
-        y="amount:Q",
-        tooltip=["category","amount","percent"]
-    ).properties(height=300)
-
-    st.altair_chart(chart8, use_container_width=True)
+    if monthly["amount"].mean()>0:
+        burn=monthly["amount"].mean()
+        reserve = monthly["income"].sum()-monthly["amount"].sum()
+        st.metric("Survival Estimate",f"{reserve/burn:.1f} months")
+    else: st.info("Not enough data")
 
 
 
-# =========================================================
-# 9️⃣ Best vs Worst Month — Quick Insight
-# =========================================================
-with st.expander("🏆 Best vs Worst Month (filtered)"):
+# ================= EXTRA CHARTS ===========================
 
-    if len(monthly)>0:
-        best = monthly.loc[monthly["amount"].idxmax()]
-        worst = monthly.loc[monthly["amount"].idxmin()]
-        st.success(f"🥇 **Best Month:** {best.year_month:%b %Y} → ₹{best.amount:,.0f}")
-        st.error(f"🥀 **Worst Month:** {worst.year_month:%b %Y} → ₹{worst.amount:,.0f}")
+# 🔥 NEW → Cumulative Expense Curve
+with st.expander("📈 Lifetime Cumulative Spend Curve"):
+    monthly["cum"] = monthly["amount"].cumsum()
+    st.altair_chart(label_chart(monthly,"year_month:T","cum:Q"),use_container_width=True)
+
+
+# 🔥 NEW → Distribution Spread
+with st.expander("📦 Spend Distribution Variation"):
+    st.altair_chart(
+        alt.Chart(source).mark_boxplot().encode(x="category:N", y="amount:Q"),
+        use_container_width=True
+    )
+
+
+# 🔥 NEW → Seasonality Chart (Month of Year Pattern)
+with st.expander("🌤 Seasonal Spend Pattern"):
+    season = source.copy()
+    season["m"] = season["period"].dt.month
+    season = season.groupby("m")["amount"].sum().reset_index()
+
+    bars  = alt.Chart(season).mark_bar(color="#7D3C98").encode(x="m:N",y="amount:Q")
+    text  = alt.Chart(season).mark_text(dy=-10,fontSize=11).encode(x="m:N",y="amount:Q",text="amount:Q")
+    st.altair_chart(bars+text,use_container_width=True)
 
 
 
