@@ -72,7 +72,7 @@ with st.expander("➕ Add Expense"):
         d = st.date_input("Date")
         acc = st.text_input("Account / UPI / Card")
         cat = st.selectbox("Category", CATEGORIES)
-        amt = st.number_input("Amount", min_value=1.0, step=1.0)
+        amt = st.number_input("Amount", min_value=0.0, step=1.0)
         submit = st.form_submit_button("💾 Save Entry")
 
     if submit:
@@ -251,6 +251,53 @@ income_burn = (lifetime_spend/total_income*100) if total_income>0 else 0
 a4.metric("🔥 Lifetime Income Burn %", f"{income_burn:.1f}%", 
           "🟢 Good" if income_burn<75 else "🟡 High" if income_burn<100 else "🔴 Critical")
 
+# =================================================
+# 🔹 ROW 6 — Budget Left + Daily Spend Limit
+# =================================================
+
+fixed_A = 11600
+fixed_B = 1900
+total_fixed = fixed_A + fixed_B
+flex_budget = MONTHLY_BUDGET - total_fixed   # money left to spend freely
+
+# days passed in month
+today_day = today.day
+days_in_month = pd.to_datetime(today.replace(day=28) + pd.Timedelta(days=4)).day
+days_left = max(days_in_month - today_day, 1)
+
+per_day_budget = flex_budget / days_left
+
+spent_so_far = current_month_total
+budget_left = MONTHLY_BUDGET - spent_so_far
+
+burn_pct = (spent_so_far / MONTHLY_BUDGET * 100) if MONTHLY_BUDGET>0 else 0
+
+
+b1, b2, b3, b4 = st.columns(4)
+
+b1.metric("🏦 Monthly Budget", f"₹{MONTHLY_BUDGET:,}")
+b2.metric("🧾 Fixed Expense (Monthly)", f"₹{total_fixed:,}")
+
+b3.metric("🔸 Flexible Left to Spend", 
+         f"₹{flex_budget:,}", 
+         "🟢 OK" if flex_budget>0 else "🔴 Over Fixed Budget")
+
+b4.metric("📆 Daily Spend Limit", 
+         f"₹{per_day_budget:,.0f}/day",
+         "🟢 Safe" if per_day_budget>200 else "🟡 Tight" if per_day_budget>0 else "🔴 ZERO")
+
+
+# -------- Budget Left vs Expense --------
+
+r7c1, r7c2 = st.columns(2)
+
+r7c1.metric("💰 Budget Remaining This Month", 
+           f"₹{budget_left:,.0f}", 
+           "🟢 Healthy" if budget_left>5000 else "🟡 Low" if budget_left>0 else "🔴 Overspent")
+
+r7c2.metric("🔥 Budget Burn %", 
+           f"{burn_pct:.1f}%", 
+           "🟢 Good" if burn_pct<60 else "🟡 High" if burn_pct<100 else "🔴 Exceeded")
 
 
 
