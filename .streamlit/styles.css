@@ -239,46 +239,47 @@ h1, h2, h3 {
 @keyframes fadeOut{
     0%{opacity:1;}
     100%{opacity:0; visibility:hidden;}
-}
-/* =======================================================================
-   💹 KPI PULSE — Smooth Luxury Breathing Animation
+}/* =======================================================================
+   💹 ULTRA-SMOOTH KPI PULSE — Balanced, Elegant, Professional
    ======================================================================= */
 
-/* Gentle breathing pulse (default gold) */
+/* Default steady breathing (gold) */
 .kpi-pulse {
-    animation: kpiPulse 2.8s ease-in-out infinite;
+    animation: pulseSoft 4.2s ease-in-out infinite;
 }
 
-/* Green pulse — positive growth, slower + softer */
+/* Subtle up-growth pulse (green) */
 .kpi-grow {
-    animation: kpiPulseGreen 2.4s ease-in-out 3;
+    animation: pulseUp 3.5s ease-out 3;
 }
 
-/* Red pulse — decline alert, still smooth but noticeable */
+/* Subtle downtrend pulse (red alert but not harsh) */
 .kpi-drop {
-    animation: kpiPulseRed 2.4s ease-in-out 3;
+    animation: pulseDown 3.5s ease-out 3;
 }
 
 
 /* ===================== KEYFRAMES ===================== */
 
-/* GOLD BREATHING — calm, premium */
-@keyframes kpiPulse {
-    0%   { transform:scale(1);      text-shadow:0 0 5px rgba(255,210,80,.35);  }
-    50%  { transform:scale(1.04);   text-shadow:0 0 16px rgba(255,210,80,.75); }
-    100% { transform:scale(1);      text-shadow:0 0 5px rgba(255,210,80,.35);  }
+/* GOLD — Gentle ambient breathing */
+@keyframes pulseSoft {
+    0%   { transform:scale(1);      text-shadow:0 0 4px rgba(255,220,150,.25); }
+    50%  { transform:scale(1.02);   text-shadow:0 0 10px rgba(255,220,150,.55); }
+    100% { transform:scale(1);      text-shadow:0 0 4px rgba(255,220,150,.25); }
 }
 
-/* GREEN GROWTH — smoother expansion */
-@keyframes kpiPulseGreen {
-    0%   { color:#88ffcc; transform:scale(1); }
-    50%  { color:#00ff99; text-shadow:0 0 22px rgba(0,255,150,.55); transform:scale(1.09); }
-    100% { color:#88ffcc; }
+
+/* GREEN — Growth but controlled, smooth */
+@keyframes pulseUp {
+    0%   { color:#baffd9; transform:scale(1); }
+    50%  { color:#6dffb0; text-shadow:0 0 14px rgba(50,255,150,.35); transform:scale(1.05); }
+    100% { color:#baffd9; transform:scale(1); }
 }
 
-/* RED DECLINE — softer but still alerting */
-@keyframes kpiPulseRed {
-    0%   { color:#ff9a9a; transform:scale(1); }
-    50%  { color:#ff4d4d; text-shadow:0 0 22px rgba(255,80,80,.55); transform:scale(1.09); }
-    100% { color:#ff9a9a; }
+
+/* RED — Controlled drop alert, still smooth */
+@keyframes pulseDown {
+    0%   { color:#ffc5c5; transform:scale(1); }
+    50%  { color:#ff6b6b; text-shadow:0 0 14px rgba(255,90,90,.35); transform:scale(1.05); }
+    100% { color:#ffc5c5; transform:scale(1); }
 }
