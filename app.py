@@ -255,44 +255,9 @@ income_usage_pct = (lifetime_spend/total_income*100) if total_income>0 else 0
 a4.metric("🔥 Spend % of Earnings", f"{income_usage_pct:.1f}%", 
          "🟢 Healthy" if income_usage_pct<75 else "🟡 Tight" if income_usage_pct<100 else "🔴 Overspent")
 
-# =================================================
-# 🔹 ROW 6 — MOST EXPENSIVE DAY (DAYWISE SPENDING) — FILTER AWARE
-# =================================================
 
-r6c1, r6c2 = st.columns(2)
 
-day_map = {0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"}
 
-# 🔥 Use FILTERED not df → Now it reacts to filters!
-if "period" in filtered.columns:
-
-    filtered["weekday"] = filtered["period"].dt.weekday  
-
-    avg_by_day = filtered.groupby("weekday")["amount"].mean().round(2)
-
-    if not avg_by_day.empty:
-
-        # Highest spend day
-        highest_day = avg_by_day.idxmax()
-        r6c1.metric(
-            "📆 Highest Avg Spend Day",
-            day_map.get(highest_day, "NA"),
-            f"₹{avg_by_day.max():,.0f}/day"
-        )
-
-        # Lowest spend day
-        lowest_day = avg_by_day.idxmin()
-        r6c2.metric(
-            "🧊 Lowest Avg Spend Day",
-            day_map.get(lowest_day, "NA"),
-            f"₹{avg_by_day.min():,.0f}/day"
-        )
-
-    else:
-        r6c1.metric("📆 Highest Avg Spend Day", "No Data")
-        r6c2.metric("🧊 Lowest Avg Spend Day", "No Data")
-else:
-    st.warning("⚠ 'period' column missing — cannot compute day wise KPI")
 
 
 
