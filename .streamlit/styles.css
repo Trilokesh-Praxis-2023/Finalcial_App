@@ -1,98 +1,56 @@
 /* =========================================================
-   🌟 GLASS FINTECH UI — KPI Dashboard Styling
+   👑 ROYAL BLACK + GOLD UI — Premium Finance Style
    ========================================================= */
 
-:root {
-    --glass-bg: rgba(255, 255, 255, 0.08);
-    --glass-border: rgba(255, 255, 255, 0.25);
-    --glow-green: #00ff99;
-    --glow-red: #ff4f4f;
-    --glow-blue: #00e1ff;
-    --card-radius: 18px;
+:root{
+    --bg:#0e0e10;
+    --gold:#ffbf00;
+    --gold-soft:#ffe08e;
+    --card:#151515;
+    --radius:16px;
 }
 
-/* ===== App Background ===== */
-.stApp {
-    background: linear-gradient(135deg,#0c121c,#1a1d2b,#11161f);
-    color:white !important;
-    font-family:"Inter",sans-serif;
+.stApp{
+    background:linear-gradient(180deg,#0c0c0e,#131418,#0a0a0b);
+    font-family:"Poppins",sans-serif;
+    color:#fff !important;
 }
 
-/* ===== KPI Cards (Glass + Glow) ===== */
-[data-testid="stMetric"] {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1.5px solid var(--glass-border);
-    border-radius: var(--card-radius);
-    padding: 14px 12px;
-    text-align:center;
-    transition:0.35s ease;
-    box-shadow: 0 0 22px rgba(0,255,255,0.12);
+/* KPI Cards */
+[data-testid="stMetric"]{
+    background:var(--card);
+    border:1px solid rgba(255,191,0,0.35);
+    border-radius:var(--radius);
+    padding:14px;
+    transition:.3s ease;
+    box-shadow:0 0 20px rgba(255,191,0,0.18);
+}
+[data-testid="stMetric"]:hover{
+    transform:scale(1.04);
+    box-shadow:0 0 30px rgba(255,191,0,0.4);
 }
 
-/* Hover expansion + glow pulse */
-[data-testid="stMetric"]:hover {
-    transform:scale(1.05);
-    box-shadow:0 0 28px var(--glow-blue);
-    border-color:var(--glow-blue);
-}
-
-/* ===== Number Styling (Bigger + Smooth Fade) ===== */
-[data-testid="stMetric"] > div > div {
-    font-size:1.5rem !important;
+/* Numbers */
+[data-testid="stMetric"] > div > div{
+    color:var(--gold);
+    font-size:1.65rem !important;
     font-weight:700;
-    animation:fadeIn 0.7s ease-in-out;
 }
 
-/* Title text inside KPI */
-[data-testid="stMetric"] label, 
-[data-testid="stMetric"] > label, 
-span[data-testid="stMetricLabel"] {
-    font-size:0.85rem !important;
-    opacity:0.85;
+/* Labels */
+span[data-testid="stMetricLabel"]{
+    color:var(--gold-soft);
+    font-size:0.9rem;
     text-transform:uppercase;
 }
 
-/* ===== Fade Animation ===== */
-@keyframes fadeIn {
-    from {opacity:0;transform: translateY(6px);}
-    to   {opacity:1;transform: translateY(0);}
+/* Buttons */
+.stButton>button{
+    background:var(--gold);
+    border:none;border-radius:var(--radius);
+    color:#000;font-weight:600;
 }
-
-/* ===== Success (Green Glow) ===== */
-.good {
-    box-shadow:0 0 20px rgba(0,255,0,0.3);
-    border-color:var(--glow-green) !important;
+.stButton>button:hover{
+    background:#ffcc33;
+    box-shadow:0 0 18px var(--gold);
 }
-
-/* ===== Danger (Red Glow) ===== */
-.bad {
-    box-shadow:0 0 20px rgba(255,50,50,0.4);
-    border-color:var(--glow-red) !important;
-}
-
-/* ===== Info Blue Glow ===== */
-.info {
-    box-shadow:0 0 20px rgba(0,180,255,0.3);
-    border-color:var(--glow-blue) !important;
-}
-
-/* ===== General UI polish ===== */
-.stButton>button {
-    border-radius: var(--card-radius);
-    background:var(--glass-bg);
-    border:1px solid var(--glass-border);
-    padding:8px 16px;
-    color:white;
-    transition:0.25s ease;
-}
-
-.stButton>button:hover {
-    background:rgba(0,255,200,0.2);
-    box-shadow:0 0 14px var(--glow-blue);
-}
-
-/* Scroll invisible + clean UI */
-::-webkit-scrollbar { width:6px; }
-::-webkit-scrollbar-thumb { background:#00e1ff88;border-radius:20px; }
