@@ -243,18 +243,3 @@ h1, h2, h3 {
 
 
 
-
-
-
-/* =======================================================================
-   🟡 STATIC KPI STYLE (NO ANIMATION — NO GLOW CHANGE)
-   ======================================================================= */
-
-.kpi-pulse,
-.kpi-grow,
-.kpi-drop {
-    animation: none !important;       /* disables animation completely */
-    text-shadow: none !important;     /* removes glowing aura */
-    color: inherit !important;        /* keeps original card theme color */
-    transform: none !important;       /* no scale, no movement */
-}
