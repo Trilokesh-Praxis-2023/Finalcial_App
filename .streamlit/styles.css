@@ -30,14 +30,14 @@
     box-shadow:0 0 30px rgba(255,191,0,0.4);
 }
 
-/* Numbers */
+/* Metric Value */
 [data-testid="stMetric"] > div > div{
     color:var(--gold);
     font-size:1.65rem !important;
     font-weight:700;
 }
 
-/* Labels */
+/* Metric Title */
 span[data-testid="stMetricLabel"]{
     color:var(--gold-soft);
     font-size:0.9rem;
@@ -54,3 +54,7 @@ span[data-testid="stMetricLabel"]{
     background:#ffcc33;
     box-shadow:0 0 18px var(--gold);
 }
+
+/* Scrollbar */
+::-webkit-scrollbar{width:8px;}
+::-webkit-scrollbar-thumb{background:var(--gold);border-radius:20px;}
