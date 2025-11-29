@@ -271,17 +271,23 @@ monthly = monthly.sort_values("year_month")
 monthly["income"]  = [get_income(m) for m in monthly["year_month"]]
 monthly["savings"] = monthly["income"] - monthly["amount"]
 
-# Reusable wrapper
+# Reusable labelled chart function (NO ERROR NOW)
 def label_chart(data, x, y, color=None, log=False, height=340):
+
     base = alt.Chart(data).encode(
         x=alt.X(x, title=""),
-        y=alt.Y(y, scale=alt.Scale(type="log") if log else alt.Scale()),
-        color=color
+        y=alt.Y(y, scale=alt.Scale(type="log") if log else alt.Scale())
     )
+
+    # only add color encoding if supplied
+    if color:
+        base = base.encode(color=color)
+
     return (
         base.mark_line(point=True) +
         base.mark_text(dy=-10, fontSize=11).encode(text=y)
     ).properties(height=height)
+
 
 
 
