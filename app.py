@@ -14,7 +14,7 @@ from sqlalchemy import text
 # =================================================
 load_dotenv()
 st.set_page_config(page_title="Finance Tracker", layout="wide")
-st.title("💰 Personal Finance Tracker (Secure & Optimized)")
+st.title("💰 Personal Finance Tracker")
 
 DATABASE_URL = os.getenv("DATABASE_URL") or \
     f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@" \
@@ -121,11 +121,12 @@ if f_cat:   filtered = filtered[filtered.category.isin(f_cat)]
 if f_acc:   filtered = filtered[filtered.accounts.isin(f_acc)]
 
 
-# =================================================
-# 📊 ADVANCED KPI DASHBOARD (NO TEXT CUTOFF, OPTIMISED DESIGN)
-# =================================================
 
-# ---------- PRE-CALCULATIONS ----------
+# =====================================================================
+# 🔥 SMART KPI DASHBOARD — INTELLIGENT GROUPING + INSIGHTS
+# =====================================================================
+
+# ------------------ CALCULATIONS ------------------
 today = pd.to_datetime("today").date()
 today_spend = filtered[filtered["period"].dt.date == today]["amount"].sum()
 
@@ -133,76 +134,17 @@ current_month_key = filtered["year_month"].max()
 current_month = filtered[filtered["year_month"] == current_month_key]
 current_month_total = current_month["amount"].sum()
 
-# Format month to readable UI
-month_fmt = lambda m: pd.to_datetime(m).strftime("%b %Y")
-
-# Weekly Processing
+# weekly
 filtered["week"] = filtered["period"].dt.isocalendar().week
 filtered["year_week"] = filtered["period"].dt.strftime("%Y-W%U")
 weekly_spend = filtered.groupby("year_week")["amount"].sum()
 
-current_week_key = weekly_spend.index.max()
-current_week_total = weekly_spend.loc[current_week_key] if current_week_key in weekly_spend else 0
-previous_week_total = weekly_spend.iloc[-2] if len(weekly_spend)>1 else 0
-wow_change = ((current_week_total-previous_week_total)/previous_week_total*100) if previous_week_total>0 else 0
+current_week = weekly_spend.index.max()
+current_week_total = weekly_spend.loc[current_week] if current_week in weekly_spend else 0
+prev_week_total = weekly_spend.iloc[-2] if len(weekly_spend)>1 else 0
+wow_change = ((current_week_total-prev_week_total)/prev_week_total*100) if prev_week_total>0 else 0
 
-
-# =================================================
-# 🔹 ROW 1 — SUMMARY SNAPSHOT
-# =================================================
-c1, c2, c3, c4 = st.columns(4)
-
-total_spend = filtered["amount"].sum()
-c1.metric("💸 Total Spend", f"₹{total_spend:,.0f}")
-
-avg_monthly = filtered.groupby("year_month")["amount"].sum().mean()
-c2.metric("📅 Avg Monthly", f"₹{avg_monthly:,.0f}")
-
-c3.metric("📆 This Month", f"₹{current_month_total:,.0f}")
-c4.metric("📅 Today", f"₹{today_spend:,.0f}")
-
-
-# =================================================
-# 🔹 ROW 2 — MONTH + WEEK TREND
-# =================================================
-r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-
-lifetime_total = df["amount"].sum()
-r2c1.metric("📊 Lifetime Used", f"{(total_spend/lifetime_total*100):.1f}%")
-
-best_month_full = filtered.groupby("year_month")["amount"].sum()
-best_month = best_month_full.idxmax()
-best_month_amt = best_month_full.max()
-r2c2.metric("🔥 Peak Month", month_fmt(best_month), f"₹{best_month_amt:,.0f}")
-
-r2c3.metric("📅 Week Spend", f"₹{current_week_total:,.0f}")
-r2c4.metric("🔄 WoW Change", f"{wow_change:.1f}%", delta_color="inverse")
-
-
-# =================================================
-# 🔹 ROW 3 — CATEGORY PERFORMANCE
-# =================================================
-r3c1, r3c2, r3c3, r3c4 = st.columns(4)
-
-prev_month = best_month_full.iloc[-2] if len(best_month_full)>1 else 0
-mom_change = ((current_month_total-prev_month)/prev_month*100) if prev_month>0 else 0
-r3c1.metric("📆 MoM Change", f"{mom_change:.1f}%")
-
-max_cat = filtered.groupby("category")["amount"].sum().idxmax()
-r3c2.metric("🏆 Top Category", max_cat)
-
-min_cat = filtered.groupby("category")["amount"].sum().idxmin()
-r3c3.metric("🪫 Low Category", min_cat)
-
-daily_avg = filtered.groupby("period")["amount"].sum().mean()
-r3c4.metric("📅 Avg/Day", f"₹{daily_avg:,.0f}")
-
-
-# =================================================
-# 🔹 ROW 4 — INCOME vs EXPENSE
-# =================================================
-i1, i2, i3, i4 = st.columns(4)
-
+# income estimator
 from datetime import datetime
 def get_income(date):
     base = datetime(2024,10,1)
@@ -211,49 +153,78 @@ def get_income(date):
     return 12000 if diff==0 else 14112 if diff==1 else 24400
 
 expected_income = get_income(current_month_key)
-i1.metric("💰 Income Expected", f"₹{expected_income:,.0f}")
-
 balance = expected_income-current_month_total
-i2.metric("📊 Balance", f"₹{balance:,.0f}", "🟢" if balance>0 else "🔴")
-
 save_rate = balance/expected_income*100 if expected_income>0 else 0
-i3.metric("💾 Save Rate", f"{save_rate:.1f}%")
+spend_ratio = current_month_total/expected_income*100
 
-ratio = current_month_total/expected_income*100
-indicator = "🟢 Safe" if ratio<70 else "🟡 High" if ratio<100 else "🔴 Burn"
-i4.metric("⚡ Spend %", f"{ratio:.1f}%", indicator)
-
-
-# =================================================
-# 🔹 ROW 5 — ACTIVITY + TOTAL INCOME + SAVINGS
-# =================================================
-a1, a2, a3, a4 = st.columns(4)
-
-# Days expense activity tracked
-active_days = filtered["period"].nunique()
-a1.metric("📆 Active Days Tracked", f"{active_days} days")
-
-# -------- TOTAL INCOME CALC --------
-# Generate historical income per your logic
-monthly_expense_full = df.groupby("year_month")["amount"].sum()
-
-income_history = []
-for m in monthly_expense_full.index:
-    income_history.append(get_income(m))
-
-total_income = sum(income_history)
-a2.metric("💰 Total Income (Estimated)", f"₹{total_income:,.0f}")
-
-# -------- Net Lifetime Savings --------
+# Lifetime Calc
+monthly_full = df.groupby("year_month")["amount"].sum()
+income_hist = [get_income(m) for m in monthly_full.index]
+total_income = sum(income_hist)
 lifetime_spend = df["amount"].sum()
 lifetime_savings = total_income - lifetime_spend
-a3.metric("🟢 Lifetime Savings", f"₹{lifetime_savings:,.0f}", 
-         "🟢 Positive" if lifetime_savings>0 else "🔴 Negative")
-
-# -------- Spend Share of Income --------
 income_usage_pct = (lifetime_spend/total_income*100) if total_income>0 else 0
-a4.metric("🔥 Spend % of Earnings", f"{income_usage_pct:.1f}%", 
-         "🟢 Healthy" if income_usage_pct<75 else "🟡 Tight" if income_usage_pct<100 else "🔴 Overspent")
+
+# daily avg
+daily_avg = filtered.groupby("period")["amount"].sum().mean()
+
+
+# =====================================================================
+# GROUP 1 • FINANCIAL POSITION SUMMARY (Where do you stand today?)
+# =====================================================================
+st.subheader("💰 Overall Financial Standing")
+
+g1 = st.columns(4)
+g1[0].metric("Total Spend (All Time)", f"₹{lifetime_spend:,.0f}")
+g1[1].metric("Total Estimated Income", f"₹{total_income:,.0f}")
+g1[2].metric("Lifetime Net Savings", f"₹{lifetime_savings:,.0f}",
+             "🟢 Positive" if lifetime_savings>0 else "🔴 Deficit")
+g1[3].metric("Income Utilization %", f"{income_usage_pct:.1f}%",
+             "🟢 Healthy" if income_usage_pct<75 else "🟡 Tight" if income_usage_pct<100 else "🔴 Overspent")
+
+
+# =====================================================================
+# GROUP 2 • CURRENT HEALTH CHECK (Real-time monitoring)
+# =====================================================================
+st.subheader("📊 Current Month & Today Snapshot")
+
+g2 = st.columns(4)
+g2[0].metric("This Month Spend", f"₹{current_month_total:,.0f}")
+g2[1].metric("Expected Monthly Income", f"₹{expected_income:,.0f}")
+g2[2].metric("Balance Left", f"₹{balance:,.0f}",
+             "🟢 Safe" if balance>0 else "🔴 Overrun")
+g2[3].metric("Today's Spend", f"₹{today_spend:,.0f}")
+
+
+# =====================================================================
+# GROUP 3 • SPEND BEHAVIOR INSIGHTS (Habits & Patterns)
+# =====================================================================
+st.subheader("🧠 Spending Behaviour Pattern")
+
+g3 = st.columns(4)
+g3[0].metric("Avg Monthly Spend", f"₹{filtered.groupby('year_month')['amount'].sum().mean():,.0f}")
+g3[1].metric("Avg Daily Spend", f"₹{daily_avg:,.0f}")
+g3[2].metric("MoM Change %", f"{((current_month_total-monthly_full.iloc[-2])/monthly_full.iloc[-2]*100):.1f}%" if len(monthly_full)>1 else "—")
+g3[3].metric("Week-over-Week Change", f"{wow_change:.1f}%", delta_color="inverse")
+
+
+# =====================================================================
+# GROUP 4 • CATEGORY PRESSURE & LEAKS (Where money drains)
+# =====================================================================
+st.subheader("🏷 Category Pressure Zones")
+
+cat_sum = filtered.groupby("category")["amount"].sum().sort_values(ascending=False)
+g4 = st.columns(4)
+
+g4[0].metric("Highest Category Spend", f"{cat_sum.index[0]} • ₹{cat_sum.iloc[0]:,.0f}")
+g4[1].metric("Lowest Category Spend", f"{cat_sum.index[-1]} • ₹{cat_sum.iloc[-1]:,.0f}")
+g4[2].metric("Active Categories", len(cat_sum))
+g4[3].metric("Concentration Risk", f"{(cat_sum.iloc[0]/total_spend*100):.1f}%",
+             "🔴 High Dependence" if cat_sum.iloc[0]/total_spend>0.45 else "🟢 Balanced")
+
+
+
+
 
 
 # ================================================================
