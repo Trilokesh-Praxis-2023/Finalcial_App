@@ -257,13 +257,13 @@ a4.metric("🔥 Spend % of Earnings", f"{income_usage_pct:.1f}%",
 
 
 # ================================================================
-# 📊 KPI DRILLDOWN – ALL KPI CHARTS + VALUE VISUALIZATION + FILTER SAFE
+# 📊 KPI DRILLDOWN – FULL SUITE + LABELS ON CHART (FILTER SAFE)
 # ================================================================
-st.subheader("📈 KPI Trend & Historical Analysis (All Visible Values)")
+st.subheader("📈 Trend Exploration Dashboard (with Values Visible)")
 
 source = filtered.copy()
 
-# ============ Monthly aggregated =============
+# ============ MONTHLY REBUILD BASED ON FILTER ============
 monthly = source.groupby("year_month")["amount"].sum().reset_index()
 monthly["year_month"] = pd.to_datetime(monthly["year_month"])
 monthly = monthly.sort_values("year_month")
@@ -271,181 +271,233 @@ monthly = monthly.sort_values("year_month")
 monthly["income"]  = [get_income(m) for m in monthly["year_month"]]
 monthly["savings"] = monthly["income"] - monthly["amount"]
 
-# Reusable labelled chart function (NO ERROR NOW)
-def label_chart(data, x, y, color=None, log=False, height=340):
-
-    base = alt.Chart(data).encode(
-        x=alt.X(x, title=""),
-        y=alt.Y(y, scale=alt.Scale(type="log") if log else alt.Scale())
-    )
-
-    # only add color encoding if supplied
-    if color:
-        base = base.encode(color=color)
-
-    return (
-        base.mark_line(point=True) +
-        base.mark_text(dy=-10, fontSize=11).encode(text=y)
-    ).properties(height=height)
-
-
-
-
 # =========================================================
-# 1️⃣ Monthly Spend Trend
+# 1️⃣ Monthly Spend Trend — VALUES OVER LINE
 # =========================================================
-with st.expander("💸 Monthly Spend Trend (Values Shown)"):
+with st.expander("💸 Monthly Spend Trend — Values Displayed"):
 
-    st.altair_chart(label_chart(monthly,"year_month:T","amount:Q"),
-                    use_container_width=True)
-
-
-
-# =========================================================
-# 2️⃣ Month-on-Month Compare (Bars + Labels)
-# =========================================================
-with st.expander("📆 Month-on-Month Spend"):
-
-    bars = alt.Chart(monthly).mark_bar(size=35,color="#27AE60").encode(
+    line = alt.Chart(monthly).mark_line(point=True, color="#29B6F6").encode(
         x="year_month:T", y="amount:Q"
     )
 
-    labels = alt.Chart(monthly).mark_text(dy=-10,fontSize=12,color="white",
-                                          fontWeight="bold").encode(
+    labels = alt.Chart(monthly).mark_text(
+        dy=-12, fontSize=12, color="yellow", fontWeight="bold"
+    ).encode(
         x="year_month:T", y="amount:Q", text="amount:Q"
     )
 
-    st.altair_chart(bars+labels,use_container_width=True)
+    st.altair_chart(line + labels, use_container_width=True)
 
 
 
 # =========================================================
-# 3️⃣ Rolling 3-Month Smoothing
+# 2️⃣ Month-on-Month Comparison — BAR + LABELS
 # =========================================================
-with st.expander("📅 Rolling 3-Month Spend Behaviour"):
+with st.expander("📆 Month-on-Month Spend — Value Bars"):
+
+    bars = alt.Chart(monthly).mark_bar(size=38, color="#26D67D").encode(
+        x="year_month:T", y="amount:Q"
+    )
+
+    texts = alt.Chart(monthly).mark_text(
+        dy=-10, fontSize=12, fontWeight="bold", color="white"
+    ).encode(
+        x="year_month:T", y="amount:Q", text="amount:Q"
+    )
+
+    st.altair_chart(bars + texts, use_container_width=True)
+
+
+
+# =========================================================
+# 3️⃣ Rolling 3-Month Smoothed Trend — LABELLED
+# =========================================================
+with st.expander("📅 Rolling 3-Month Spend Trend"):
 
     monthly["roll"] = monthly["amount"].rolling(3).mean()
-    st.altair_chart(label_chart(monthly,"year_month:T","roll:Q"),use_container_width=True)
+
+    line = alt.Chart(monthly).mark_line(point=True, color="#FFC107").encode(
+        x="year_month:T", y="roll:Q"
+    )
+
+    labels = alt.Chart(monthly).mark_text(
+        dy=-10, fontSize=11, color="white"
+    ).encode(
+        x="year_month:T", y="roll:Q", text="roll:Q"
+    )
+
+    st.altair_chart(line + labels, use_container_width=True)
 
 
 
 # =========================================================
-# 4️⃣ Category Trend Over Time (Log Scale + Labels)
+# 4️⃣ Category Trend Over Time — LOG & Labels
 # =========================================================
-with st.expander("🏷 Category Trend (Longitudinal View)"):
+with st.expander("🏷 Category Trend Timeline"):
 
     cat = source.groupby(["year_month","category"])["amount"].sum().reset_index()
     cat["year_month"] = pd.to_datetime(cat["year_month"])
 
-    st.altair_chart(label_chart(cat, "year_month:T", "amount:Q",
-                                color="category:N", log=True),
-                    use_container_width=True)
+    line = alt.Chart(cat).mark_line(point=True).encode(
+        x="year_month:T",
+        y=alt.Y("amount:Q", scale=alt.Scale(type="log")),
+        color="category:N"
+    )
+
+    labels = alt.Chart(cat).mark_text(
+        dy=-10, fontSize=10
+    ).encode(
+        x="year_month:T", y="amount:Q", text="amount:Q", color="category:N"
+    )
+
+    st.altair_chart(line + labels, use_container_width=True)
 
 
 
 # =========================================================
-# 5️⃣ Income vs Expense + Savings Trend (Labeled)
+# 5️⃣ Income vs Expense vs Savings — LABELLED
 # =========================================================
-with st.expander("💰 Income vs Expense vs Savings"):
+with st.expander("💰 Income vs Expense vs Savings (Monthly)"):
 
-    melt = monthly.melt("year_month",value_vars=["amount","income","savings"])
-    st.altair_chart(label_chart(melt,"year_month:T","value:Q","variable:N"),
-                    use_container_width=True)
+    melt = monthly.melt("year_month", value_vars=["amount","income","savings"])
+
+    line = alt.Chart(melt).mark_line(point=True).encode(
+        x="year_month:T", y="value:Q", color="variable:N"
+    )
+
+    labels = alt.Chart(melt).mark_text(
+        dy=-10, fontSize=10
+    ).encode(
+        x="year_month:T", y="value:Q", text="value:Q", color="variable:N"
+    )
+
+    st.altair_chart(line + labels, use_container_width=True)
 
 
 
 # =========================================================
-# 6️⃣ Net Savings Trend
+# 6️⃣ Savings Trend — VALUE SHOWN
 # =========================================================
-with st.expander("🧾 Savings Trend (Monthly)"):
+with st.expander("🧾 Net Savings Monthly Trend"):
 
-    st.altair_chart(label_chart(monthly,"year_month:T","savings:Q"),
-                    use_container_width=True)
+    area = alt.Chart(monthly).mark_area(color="#00C853", opacity=0.5).encode(
+        x="year_month:T", y="savings:Q"
+    )
+
+    labels = alt.Chart(monthly).mark_text(
+        dy=-10, fontSize=11, color="white"
+    ).encode(
+        x="year_month:T", y="savings:Q", text="savings:Q"
+    )
+
+    st.altair_chart(area + labels, use_container_width=True)
 
 
 
 # =========================================================
-# 7️⃣ Category Spend Share Breakdown (Labeled Bars)
+# 7️⃣ Category Spend Share — With % Labels
 # =========================================================
-with st.expander("📊 Category Spend Ratio Distribution"):
+with st.expander("📊 Category Spend Share Distribution"):
 
     share = source.groupby("category")["amount"].sum().reset_index()
     share["percent"] = (share["amount"]/share["amount"].sum()*100).round(1)
 
-    bars = alt.Chart(share).mark_bar(color="#FFB300").encode(
+    bars = alt.Chart(share).mark_bar(color="#FFCA28").encode(
         x="category:N", y="percent:Q"
     )
-    labels = alt.Chart(share).mark_text(dy=-8,fontSize=11,color="black",
-                                        fontWeight="bold").encode(
+
+    labels = alt.Chart(share).mark_text(
+        dy=-8, fontSize=11, fontWeight="bold"
+    ).encode(
         x="category:N", y="percent:Q", text="percent:Q"
     )
-    st.altair_chart(bars+labels,use_container_width=True)
+
+    st.altair_chart(bars + labels, use_container_width=True)
 
 
 
 # =========================================================
-# 8️⃣ Best vs Worst Month
+# 8️⃣ Best vs Worst Month Summary Card
 # =========================================================
-with st.expander("🏆 Best vs Worst Month"):
+with st.expander("🏆 Best vs Worst Month Summary"):
 
     best = monthly.loc[monthly["amount"].idxmax()]
     worst = monthly.loc[monthly["amount"].idxmin()]
 
-    st.success(f"🥇 Best → {best.year_month:%b %Y} | ₹{best.amount:,.0f}")
-    st.error  (f"🥀 Worst → {worst.year_month:%b %Y} | ₹{worst.amount:,.0f}")
+    st.success(f"🥇 Best Month → {best.year_month:%b %Y}  |  ₹{best.amount:,.0f}")
+    st.error  (f"🥀 Worst Month → {worst.year_month:%b %Y} |  ₹{worst.amount:,.0f}")
 
 
 
 # =========================================================
-# 9️⃣ Volatility Index
+# 9️⃣ Spend Volatility / Stability Score
 # =========================================================
-with st.expander("🌡 Spending Volatility Score"):
+with st.expander("🌡 Expense Stability (Volatility Index)"):
 
     if len(monthly)>2:
         vol = monthly["amount"].pct_change().abs().mean()*100
-        st.metric("Stability Score",f"{max(0,100-vol):.1f}%")
-    else: st.info("Need ≥3 months of data")
+        stability = max(0,100-vol)
+        st.metric("Stability Score", f"{stability:.1f}%")
+        st.caption("Lower volatility = more consistent control 🚀")
+    else:
+        st.info("Need at least 3 months of data.")
 
 
 
 # =========================================================
-# 🔟 Survival Duration (No Income Case)
+# 🔟 Survival Duration If Income Stops
 # =========================================================
-with st.expander("🛡 Financial Survival Length (No Income)"):
+with st.expander("🛡 Survival Duration (If Income Stops)"):
 
     if monthly["amount"].mean()>0:
-        burn=monthly["amount"].mean()
-        reserve = monthly["income"].sum()-monthly["amount"].sum()
-        st.metric("Survival Estimate",f"{reserve/burn:.1f} months")
-    else: st.info("Not enough data")
+        burn = monthly["amount"].mean()
+        surplus = monthly["income"].sum()-monthly["amount"].sum()
+        st.metric("Estimated Survival", f"{surplus/burn:.1f} months")
+    else:
+        st.info("Not enough data to estimate.")
 
+# =========================================================
+# EXTRA INSIGHTS BELOW 🔥
+# =========================================================
 
-
-# ================= EXTRA CHARTS ===========================
-
-# 🔥 NEW → Cumulative Expense Curve
-with st.expander("📈 Lifetime Cumulative Spend Curve"):
-    monthly["cum"] = monthly["amount"].cumsum()
-    st.altair_chart(label_chart(monthly,"year_month:T","cum:Q"),use_container_width=True)
-
-
-# 🔥 NEW → Distribution Spread
-with st.expander("📦 Spend Distribution Variation"):
+# 📈 CUMULATIVE SPENDING OVER TIME
+with st.expander("📈 Cumulative Spending Curve"):
+    monthly["cumulative"] = monthly["amount"].cumsum()
     st.altair_chart(
-        alt.Chart(source).mark_boxplot().encode(x="category:N", y="amount:Q"),
+        alt.Chart(monthly).mark_line(point=True).encode(
+            x="year_month:T", y="cumulative:Q", tooltip=["year_month","cumulative"]
+        ),
         use_container_width=True
     )
 
+# 📦 SPENDING DISTRIBUTION OUTLIER DETECTION
+with st.expander("📦 Outlier Spread (Boxplot)"):
 
-# 🔥 NEW → Seasonality Chart (Month of Year Pattern)
-with st.expander("🌤 Seasonal Spend Pattern"):
+    st.altair_chart(
+        alt.Chart(source).mark_boxplot(color="#8E44AD").encode(
+            x="category:N", y="amount:Q"
+        ),
+        use_container_width=True
+    )
+
+# 🌦 SEASONAL SPENDING BEHAVIOR
+with st.expander("🌦 Seasonal Spend Pattern (Month of Year)"):
+
     season = source.copy()
     season["m"] = season["period"].dt.month
-    season = season.groupby("m")["amount"].sum().reset_index()
+    month_sum = season.groupby("m")["amount"].sum().reset_index()
 
-    bars  = alt.Chart(season).mark_bar(color="#7D3C98").encode(x="m:N",y="amount:Q")
-    text  = alt.Chart(season).mark_text(dy=-10,fontSize=11).encode(x="m:N",y="amount:Q",text="amount:Q")
-    st.altair_chart(bars+text,use_container_width=True)
+    bars = alt.Chart(month_sum).mark_bar(color="#5DADE2").encode(
+        x="m:N", y="amount:Q"
+    )
+
+    labels = alt.Chart(month_sum).mark_text(
+        dy=-10,fontSize=11
+    ).encode(
+        x="m:N", y="amount:Q", text="amount:Q"
+    )
+
+    st.altair_chart(bars+labels, use_container_width=True)
 
 
 
