@@ -448,12 +448,7 @@ share_df["Share %"] = (share_df["Total Spend"]/total_spend*100).round(2)
 st.dataframe(share_df, width="stretch")
 
 
-# ================== NORMALIZED CATEGORY TREND CHART ==================
-st.write("### 📈 Category Trend Over Time — Normalized for Comparison")
-pivot = cat_month.pivot(index="year_month", columns="category", values="amount").fillna(0)
-normalized = pivot.apply(lambda x:(x-x.min())/(x.max()-x.min() if x.max()!=x.min() else 1))
-st.line_chart(normalized, width="stretch", height=320)
-st.caption("📍 Trend only — values scaled 0-1 for visibility.")
+
 
 
 
