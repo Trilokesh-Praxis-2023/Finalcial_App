@@ -6,7 +6,106 @@ forecast future expenses using AI, and export reports — all in one dashboard.
 
 ---
 
-## 🚀 Features
+## 🚀 Features# 💰 Personal Finance Intelligence Dashboard
+AI-powered expense tracking, forecasting & analytics.
+
+A full financial management dashboard built using Streamlit + PostgreSQL + Prophet,
+featuring expense logging, insights, forecasting and export options — all inside one UI.
+
+-------------------------------------------------------
+
+🚀 Features
+
+• Store expenses securely in PostgreSQL  
+• Password-protected access  
+• Add expenses via UI form  
+• KPI dashboard (Total Spend, Avg Spend, Txn Count)  
+• Filtering by year/month/category/account  
+• KPI drilldown with trend charts  
+• Category-wise spending distribution  
+• Rolling 3-month trend analytics  
+• CSV & Excel export  
+• 6-month forecast (Prophet)  
+• 30-day forecast (daily)  
+• Delete transactions from dashboard  
+• Royal Black+Gold premium UI theme
+
+-------------------------------------------------------
+
+🧠 Forecasting
+
+Monthly Forecast (6 months) → Requires 3 months of data  
+Daily Forecast (30 days) → Requires 7+ days of history  
+
+Both visualized with charts + prediction tables.
+
+-------------------------------------------------------
+
+📦 Tech Stack
+
+• Streamlit (Web UI)  
+• PostgreSQL + SQLAlchemy (Database)  
+• Prophet (Forecasting AI)  
+• Altair (Charts)  
+• .env Secrets (Security)
+
+-------------------------------------------------------
+
+📂 Project Structure
+
+finance-tracker/  
+│── app.py  
+│── kpi_dashboard.py  
+│── kpi_drilldown.py  
+│── .streamlit/styles.css  
+│── requirements.txt  
+│── README.md  
+│── .env  
+│── .gitignore  
+
+-------------------------------------------------------
+
+🔐 .env Configuration
+
+DB_USER=postgres  
+DB_PASSWORD=your_password  
+DB_HOST=localhost  
+DB_PORT=5432  
+DB_NAME=finance_db  
+APP_PASSWORD=your_dashboard_login_password  
+
+-------------------------------------------------------
+
+▶ How to Run
+
+pip install -r requirements.txt  
+streamlit run app.py  
+
+Open browser → http://localhost:8501
+
+-------------------------------------------------------
+
+📥 Export Options
+
+• Download CSV  
+• Download Excel  
+• Useful for budgeting, tax audit, financial planning
+
+-------------------------------------------------------
+
+🔥 Future Enhancements
+
+• AI Monthly Spending Insights  
+• PDF Report + Auto Email  
+• WhatsApp Budget Alerts  
+• OCR Receipt Scanner  
+• Multi-user accounts  
+• Investment Portfolio Dashboard
+
+-------------------------------------------------------
+
+Built for personal finance clarity & future planning. 💡📊
+
 
 | Feature | Status |
 |---|---|
