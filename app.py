@@ -774,24 +774,6 @@ st.divider()
 st.header("📊 Insights & Analysis")
 
 
-# 1️⃣ Monthly Spend Trend
-m = filtered.groupby("year_month")["amount"].sum().reset_index()
-if not m.empty:
-    st.subheader("📅 Monthly Spending Trend")
-
-    chart = (
-        alt.Chart(m)
-        .mark_line(point=True)
-        .encode(
-            x="year_month",
-            y="amount"
-        )
-        .properties(width="container")   # 🔥 NEW responsive width (no warnings)
-    )
-
-    st.altair_chart(chart)   # ← no width/use_container_width here
-
-
 # =================================================
 # 💰 Monthly Budget Monitor (Updated + Sorted + Clean Format)
 # =================================================
