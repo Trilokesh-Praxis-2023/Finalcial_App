@@ -30,7 +30,7 @@ cmdstan*
 stan_cache/
 
 # Streamlit cache
-.streamlit/
+
 
 # ==========================================
 # 🧾 DATA OUTPUT & EXPORT FILES

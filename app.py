@@ -7,6 +7,9 @@ from io import BytesIO
 import altair as alt
 import os
 from sqlalchemy import text
+# Load external CSS
+with open("styles.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 
 # =================================================

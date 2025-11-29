@@ -1,0 +1,54 @@
+/* ========= GLOBAL PAGE RESET ========= */
+.main { max-width: 92%; margin: auto; }
+
+/* ========= KPI Value Look ========= */
+[data-testid="stMetricValue"] {
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    color: #00e676 !important;
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    opacity: 0.85 !important;
+}
+
+/* ========= CARDS & CONTAINERS ========= */
+.block-container {
+    padding: 2rem 2rem;
+}
+
+/* Expander */
+.streamlit-expanderHeader {
+    font-size: 17px !important;
+    color: #00E676 !important;
+    font-weight:700 !important;
+}
+
+/* ========= BUTTONS ========= */
+div.stButton > button {
+    background-color: #00e676;
+    color: #000;
+    border-radius: 10px;
+    padding:10px 25px;
+    font-weight: 700;
+    border: none;
+    transition: 0.2s;
+}
+div.stButton > button:hover {
+    transform: scale(1.05);
+}
+
+/* ========= TABLE UI ========= */
+[data-testid="stDataFrame"] {
+    border-radius: 10px;
+    overflow: hidden;
+    border:1px solid rgba(255,255,255,.12);
+}
+
+/* ========= TITLES & HEADERS ========= */
+h1,h2,h3,h4 {
+    font-weight: 800 !important;
+    letter-spacing: .6px;
+}
