@@ -225,10 +225,36 @@ i4.metric("⚡ Spend %", f"{ratio:.1f}%", indicator)
 
 
 # =================================================
-# 🔹 ROW 5 — ACTIVITY
+# 🔹 ROW 5 — ACTIVITY + TOTAL INCOME + SAVINGS
 # =================================================
+a1, a2, a3, a4 = st.columns(4)
+
+# Days expense activity tracked
 active_days = filtered["period"].nunique()
-st.metric("📆 Days Tracked", f"{active_days} days")
+a1.metric("📆 Active Days Tracked", f"{active_days} days")
+
+# -------- TOTAL INCOME CALC --------
+# Generate historical income per your logic
+monthly_expense_full = df.groupby("year_month")["amount"].sum()
+
+income_history = []
+for m in monthly_expense_full.index:
+    income_history.append(get_income(m))
+
+total_income = sum(income_history)
+a2.metric("💰 Total Income (Estimated)", f"₹{total_income:,.0f}")
+
+# -------- Net Lifetime Savings --------
+lifetime_spend = df["amount"].sum()
+lifetime_savings = total_income - lifetime_spend
+a3.metric("🟢 Lifetime Savings", f"₹{lifetime_savings:,.0f}", 
+         "🟢 Positive" if lifetime_savings>0 else "🔴 Negative")
+
+# -------- Spend Share of Income --------
+income_usage_pct = (lifetime_spend/total_income*100) if total_income>0 else 0
+a4.metric("🔥 Spend % of Earnings", f"{income_usage_pct:.1f}%", 
+         "🟢 Healthy" if income_usage_pct<75 else "🟡 Tight" if income_usage_pct<100 else "🔴 Overspent")
+
 
 
 # =================================================
