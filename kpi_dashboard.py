@@ -157,7 +157,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     days_left  = max(days_total - today.day, 1)
 
     daily_limit   = left / days_left                # recommended remaining spend/day
-    ideal_per_day = 18000 - 12800          # <-- your formula exactly
+    ideal_per_day = (18000 - 12800) / days_total          # <-- your formula exactly
 
     c6_1, c6_2, c6_3, c6_4 = st.columns(4)
     c6_1.metric("💰 Budget Left", f"₹{left:,.0f}")
