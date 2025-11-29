@@ -255,38 +255,44 @@ income_usage_pct = (lifetime_spend/total_income*100) if total_income>0 else 0
 a4.metric("🔥 Spend % of Earnings", f"{income_usage_pct:.1f}%", 
          "🟢 Healthy" if income_usage_pct<75 else "🟡 Tight" if income_usage_pct<100 else "🔴 Overspent")
 
-
 # =================================================
-# 🔹 ROW 6 — MOST EXPENSIVE DAY (DAYWISE SPENDING)
+# 🔹 ROW 6 — MOST EXPENSIVE DAY (DAYWISE SPENDING) — FILTER AWARE
 # =================================================
 
 r6c1, r6c2 = st.columns(2)
 
-# map weekday numbers → readable names
 day_map = {0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"}
 
-# extract weekday
-df["weekday"] = df["period"].dt.weekday  
+# 🔥 Use FILTERED not df → Now it reacts to filters!
+if "period" in filtered.columns:
 
-# compute mean spend per weekday
-avg_by_day = df.groupby("weekday")["amount"].mean().round(2)
+    filtered["weekday"] = filtered["period"].dt.weekday  
 
-if not avg_by_day.empty:
-    highest_day = avg_by_day.idxmax()
-    highest_day_value = avg_by_day.max()
+    avg_by_day = filtered.groupby("weekday")["amount"].mean().round(2)
 
-    r6c1.metric("📆 Highest Avg Spend Day", day_map[highest_day], f"₹{highest_day_value:,.0f}/day")
+    if not avg_by_day.empty:
+
+        # Highest spend day
+        highest_day = avg_by_day.idxmax()
+        r6c1.metric(
+            "📆 Highest Avg Spend Day",
+            day_map.get(highest_day, "NA"),
+            f"₹{avg_by_day.max():,.0f}/day"
+        )
+
+        # Lowest spend day
+        lowest_day = avg_by_day.idxmin()
+        r6c2.metric(
+            "🧊 Lowest Avg Spend Day",
+            day_map.get(lowest_day, "NA"),
+            f"₹{avg_by_day.min():,.0f}/day"
+        )
+
+    else:
+        r6c1.metric("📆 Highest Avg Spend Day", "No Data")
+        r6c2.metric("🧊 Lowest Avg Spend Day", "No Data")
 else:
-    r6c1.metric("📆 Highest Avg Spend Day", "Not enough data")
-
-# second box — optional insight
-if not avg_by_day.empty:
-    lowest_day = avg_by_day.idxmin()
-    lowest_day_value = avg_by_day.min()
-
-    r6c2.metric("🧊 Cheapest Avg Spend Day", day_map[lowest_day], f"₹{lowest_day_value:,.0f}/day")
-else:
-    r6c2.metric("🧊 Cheapest Avg Spend Day", "Not enough data")
+    st.warning("⚠ 'period' column missing — cannot compute day wise KPI")
 
 
 
