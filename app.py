@@ -9,13 +9,19 @@ import os
 from sqlalchemy import text
 import os
 
-css_path = ".streamlit\styles.css"  # you can change folder later
+# ===========================
+# 💎 Load CSS Theme (Glass UI)
+# ===========================
 
-if os.path.exists(css_path):
-    with open(css_path) as f:
+css_path = os.path.join(".streamlit", "styles.css")   # auto-correct path
+
+if os.path.isfile(css_path):
+    with open(css_path, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 else:
-    st.warning("⚠ styles.css not found — UI theme not loaded")
+    st.error("❗ styles.css NOT FOUND — place it inside .streamlit/styles.css")
+    st.info("Expected path → .streamlit/styles.css")
+
 
 
 
