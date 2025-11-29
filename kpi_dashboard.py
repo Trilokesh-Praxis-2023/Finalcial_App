@@ -18,34 +18,8 @@ def get_income(date):
     return 12000 if diff == 0 else 14112 if diff == 1 else 24400
 
 
-# ================================================================
-# 📌 SMALL SPARKLINE CHART INSIDE KPI CARDS
-# ================================================================
-def sparkline(data, color="#00eaff"):
-    """Mini KPI Trend Chart"""
-    if data is None or len(data) < 2:
-        return None
-
-    df = data.reset_index(drop=True)
-    df = df.rename(columns={df.columns[-1]: "value"})
-
-    chart = (
-        alt.Chart(df.reset_index())
-        .mark_line(size=2, interpolate="monotone", color=color)
-        .encode(
-            x="index:Q",
-            y="value:Q",
-        )
-        .properties(width=120, height=26)
-    )
-    return chart
 
 
-def _safe_sparkline(data, color="#00eaff"):
-    """Helper to draw sparkline only if data is valid."""
-    ch = sparkline(data, color)
-    if ch is not None:
-        st.altair_chart(ch, use_container_width=False)
 
 
 # ===================================================================
@@ -98,20 +72,16 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
 
     with c1:
         st.metric("💸 Total Spend (Filtered)", f"₹{total_spend:,.0f}")
-        _safe_sparkline(f.tail(30)[["amount"]])
 
     with c2:
         st.metric("📆 Current Month Spend", f"₹{current_month_total:,.0f}")
-        _safe_sparkline(current_month[["amount"]], "#00e1ff")
 
     with c3:
         st.metric("📅 Today", f"₹{today_spend:,.0f}")
-        _safe_sparkline(f.tail(7)[["amount"]], "#ff007f")
 
     with c4:
         st.metric("📅 Avg Monthly Spend", f"₹{avg_monthly:,.0f}")
         month_series = f.groupby("year_month")["amount"].sum().reset_index()
-        _safe_sparkline(month_series, "#73ff47")
 
     # =========================================================
     # 🔹 ROW 2 — MOMENTUM & TREND DIRECTION
