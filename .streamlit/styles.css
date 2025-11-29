@@ -238,48 +238,48 @@ h1, h2, h3 {
 /* Loader fade-out */
 @keyframes fadeOut{
     0%{opacity:1;}
-    100%{opacity:0; visibility:hidden;}
-}/* =======================================================================
-   💹 ULTRA-SMOOTH KPI PULSE — Balanced, Elegant, Professional
+    100%{opacity:0; visibility:hidden;}  
+}
+
+/* =======================================================================
+   ✨ KPI GLOW ONLY — No Scaling, No Movement, Just Soft Aura
    ======================================================================= */
 
-/* Default steady breathing (gold) */
+/* Default ambient gold KPI glow */
 .kpi-pulse {
-    animation: pulseSoft 4.2s ease-in-out infinite;
+    animation: glowSoft 4.8s ease-in-out infinite;
 }
 
-/* Subtle up-growth pulse (green) */
+/* Green glow on growth */
 .kpi-grow {
-    animation: pulseUp 3.5s ease-out 3;
+    animation: glowUp 3.8s ease-in-out 3;
 }
 
-/* Subtle downtrend pulse (red alert but not harsh) */
+/* Red glow on decline */
 .kpi-drop {
-    animation: pulseDown 3.5s ease-out 3;
+    animation: glowDown 3.8s ease-in-out 3;
 }
 
 
 /* ===================== KEYFRAMES ===================== */
 
-/* GOLD — Gentle ambient breathing */
-@keyframes pulseSoft {
-    0%   { transform:scale(1);      text-shadow:0 0 4px rgba(255,220,150,.25); }
-    50%  { transform:scale(1.02);   text-shadow:0 0 10px rgba(255,220,150,.55); }
-    100% { transform:scale(1);      text-shadow:0 0 4px rgba(255,220,150,.25); }
+/* GOLD — calm light breathing */
+@keyframes glowSoft {
+    0%   { text-shadow:0 0 4px rgba(255,210,120,.25); }
+    50%  { text-shadow:0 0 14px rgba(255,210,120,.55); }
+    100% { text-shadow:0 0 4px rgba(255,210,120,.25); }
 }
 
-
-/* GREEN — Growth but controlled, smooth */
-@keyframes pulseUp {
-    0%   { color:#baffd9; transform:scale(1); }
-    50%  { color:#6dffb0; text-shadow:0 0 14px rgba(50,255,150,.35); transform:scale(1.05); }
-    100% { color:#baffd9; transform:scale(1); }
+/* GREEN — positive value gentle shine */
+@keyframes glowUp {
+    0%   { color:#b9ffd9; text-shadow:0 0 4px rgba(60,255,160,.25); }
+    50%  { color:#7affb7; text-shadow:0 0 18px rgba(60,255,160,.55); }
+    100% { color:#b9ffd9; text-shadow:0 0 4px rgba(60,255,160,.25); }
 }
 
-
-/* RED — Controlled drop alert, still smooth */
-@keyframes pulseDown {
-    0%   { color:#ffc5c5; transform:scale(1); }
-    50%  { color:#ff6b6b; text-shadow:0 0 14px rgba(255,90,90,.35); transform:scale(1.05); }
-    100% { color:#ffc5c5; transform:scale(1); }
+/* RED — smooth risk alert glow */
+@keyframes glowDown {
+    0%   { color:#ffcccc; text-shadow:0 0 4px rgba(255,90,90,.25); }
+    50%  { color:#ff6e6e; text-shadow:0 0 18px rgba(255,90,90,.55); }
+    100% { color:#ffcccc; text-shadow:0 0 4px rgba(255,90,90,.25); }
 }
