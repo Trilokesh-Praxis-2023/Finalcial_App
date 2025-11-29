@@ -241,45 +241,20 @@ h1, h2, h3 {
     100%{opacity:0; visibility:hidden;}  
 }
 
+
+
+
+
+
 /* =======================================================================
-   ✨ KPI GLOW ONLY — No Scaling, No Movement, Just Soft Aura
+   🟡 STATIC KPI STYLE (NO ANIMATION — NO GLOW CHANGE)
    ======================================================================= */
 
-/* Default ambient gold KPI glow */
-.kpi-pulse {
-    animation: glowSoft 4.8s ease-in-out infinite;
-}
-
-/* Green glow on growth */
-.kpi-grow {
-    animation: glowUp 3.8s ease-in-out 3;
-}
-
-/* Red glow on decline */
+.kpi-pulse,
+.kpi-grow,
 .kpi-drop {
-    animation: glowDown 3.8s ease-in-out 3;
-}
-
-
-/* ===================== KEYFRAMES ===================== */
-
-/* GOLD — calm light breathing */
-@keyframes glowSoft {
-    0%   { text-shadow:0 0 4px rgba(255,210,120,.25); }
-    50%  { text-shadow:0 0 14px rgba(255,210,120,.55); }
-    100% { text-shadow:0 0 4px rgba(255,210,120,.25); }
-}
-
-/* GREEN — positive value gentle shine */
-@keyframes glowUp {
-    0%   { color:#b9ffd9; text-shadow:0 0 4px rgba(60,255,160,.25); }
-    50%  { color:#7affb7; text-shadow:0 0 18px rgba(60,255,160,.55); }
-    100% { color:#b9ffd9; text-shadow:0 0 4px rgba(60,255,160,.25); }
-}
-
-/* RED — smooth risk alert glow */
-@keyframes glowDown {
-    0%   { color:#ffcccc; text-shadow:0 0 4px rgba(255,90,90,.25); }
-    50%  { color:#ff6e6e; text-shadow:0 0 18px rgba(255,90,90,.55); }
-    100% { color:#ffcccc; text-shadow:0 0 4px rgba(255,90,90,.25); }
+    animation: none !important;       /* disables animation completely */
+    text-shadow: none !important;     /* removes glowing aura */
+    color: inherit !important;        /* keeps original card theme color */
+    transform: none !important;       /* no scale, no movement */
 }
