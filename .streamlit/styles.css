@@ -1,153 +1,127 @@
 /* =======================================================================
-    👑 ROYAL BLACK + GOLD PREMIUM THEME — FINAL FULL BUILD
-    Includes:
-    🔥 Background Gradient + Ambient Gold Mist
-    ⭐ Golden Metrics Cards
-    ⚡ Hover Glow + Animated Gold Shimmer
-    🥇 Sidebar Gold Neon Strip + Glass Effect
-    🎛 Buttons, Scrollbars & Typography
+    👑 ROYAL BLACK + GOLD — V2 ULTRA PREMIUM
+    Enhancements Added:
+    ⭐ Softer Neon Gold + Richer Shadow Depth
+    ⚡ Fluid Shimmer + Lift Motion
+    🥇 Sidebar now Lux Glass + Gold Beam Edge
+    🌫 Ambient Mist Gentle, Less Strain, More Elegance
+    🔥 Header Glow + Section Divider Styling
    ======================================================================= */
 
 
 /* =======================================================================
-   🌑 GLOBAL BACKGROUND — Royal Black + Gold Ambience
+   🌑 GLOBAL BACKGROUND — Cinematic Depth + Gold Atmosphere
    ======================================================================= */
 .stApp {
-    background: linear-gradient(145deg, #090909 0%, #0e0e10 40%, #141414 100%);
+    background: linear-gradient(145deg, #080808 0%, #0d0e10 42%, #151516 100%);
     background-attachment: fixed;
     font-family: "Poppins", sans-serif;
     color: #fff !important;
 }
 
-/* Ambient golden glow */
 .stApp::before {
     content: "";
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+    inset: 0;
     pointer-events: none;
     background:
-        radial-gradient(circle at 18% 12%, rgba(255,185,0,0.18), transparent 60%),
-        radial-gradient(circle at 82% 85%, rgba(255,175,0,0.14), transparent 65%);
-    z-index: -1;
+        radial-gradient(circle at 16% 12%, rgba(255,200,50,0.15), transparent 68%),
+        radial-gradient(circle at 85% 84%, rgba(255,180,40,0.18), transparent 70%);
+    z-index: -2;
 }
 
-/* Golden mist wash */
 .stApp::after {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(180deg, rgba(255,190,0,0.04) 0%, transparent 70%);
+    background: linear-gradient(180deg, rgba(255,200,60,0.03) 0%, transparent 70%);
     z-index: -1;
 }
 
 
 /* =======================================================================
-   🎨 GLOBAL COLOR TOKENS
+   🎨 VARIABLES — Golden Identity
    ======================================================================= */
-:root{
+:root {
     --bg:#0e0e10;
     --gold:#FFB800;
-    --gold-soft:#FFE4AE;
+    --gold-soft:#FFE8BB;
     --gold-glow:#FFD36A;
     --card:#141414;
-    --radius:16px;
+    --radius:18px;
 }
 
 
 /* =======================================================================
-   🔥 KPI CARDS — Metallic Finance Panels
+   🔥 KPI METRIC CARDS — Royal Panels + Shimmer
    ======================================================================= */
-[data-testid="stMetric"]{
+[data-testid="stMetric"] {
     background: var(--card);
     border-radius: var(--radius);
-    border: 1px solid rgba(255,191,0,0.45);
-    box-shadow: 0 0 22px rgba(255,185,0,0.26);
-    padding: 18px;
-    transition: .32s ease;
+    border: 1px solid rgba(255,200,40,0.45);
+    box-shadow: 0 0 18px rgba(255,190,0,0.25);
+    padding: 22px;
+    transition: .35s ease;
+    overflow: hidden;
     position: relative;
-    overflow: hidden; /* enables shimmer */
 }
 
-/* Hover glow */
-[data-testid="stMetric"]:hover{
-    transform: scale(1.055);
-    box-shadow: 0 0 30px rgba(255,185,0,0.55);
+[data-testid="stMetric"]:hover {
+    transform: translateY(-3px) scale(1.055);
+    box-shadow: 0 0 34px rgba(255,210,80,0.55);
     border-color: var(--gold);
 }
 
-/* Animated Gold Shimmer Reflection */
-[data-testid="stMetric"]::after{
+/* Gold Shine Sweep */
+[data-testid="stMetric"]::after {
     content:"";
     position:absolute;
-    top:0;
-    left:-160%;
-    width:140%;
+    top:0; left:-170%;
+    width:160%;
     height:100%;
     background: linear-gradient(75deg,
                 transparent 0%,
-                rgba(255,255,255,0.18) 50%,
+                rgba(255,255,255,0.22) 45%,
                 transparent 100%);
     transform: skewX(-18deg);
-    transition: .6s ease-out;
+    transition: .7s ease-out;
     opacity:0;
 }
-[data-testid="stMetric"]:hover::after{
-    left:160%;
+[data-testid="stMetric"]:hover::after {
+    left:170%;
     opacity:1;
 }
 
-/* Metric number */
-[data-testid="stMetric"] > div > div{
+/* Typography */
+[data-testid="stMetric"] > div > div {
     color: var(--gold);
-    font-size: 1.78rem !important;
-    font-weight: 700;
-    letter-spacing: .6px;
-    animation:numberFade 1.4s ease-out;
+    font-size: 1.85rem !important;
+    font-weight: 800;
+    letter-spacing: .7px;
 }
-
-/* Metric title */
-span[data-testid="stMetricLabel"]{
+span[data-testid="stMetricLabel"] {
     color: var(--gold-soft);
-    font-size: .85rem;
+    font-size: .84rem;
+    opacity: .88;
     text-transform: uppercase;
-    opacity: .9;
-}
-
-/* Fade-in entry animation */
-@keyframes numberFade{
-    0%{opacity:0; transform:translateY(8px); filter:blur(6px);}
-    100%{opacity:1; transform:translateY(0);}
 }
 
 
 /* =======================================================================
-   📊 STATUS BADGES
-   ======================================================================= */
-.good { border-left: 5px solid #00ff7b; box-shadow: 0 0 18px #00ff7a45; }
-.warn { border-left: 5px solid #ffd944; box-shadow: 0 0 18px #ffd94455; }
-.bad  { border-left: 5px solid #ff4a4a; box-shadow: 0 0 18px #ff4a4a55; }
-
-
-/* =======================================================================
-   ⭐ SIDEBAR — Gold Neon Glass UI
+   ⭐ SIDEBAR — Royal Glass + Neon Gold Beam
    ======================================================================= */
 section[data-testid="stSidebar"] {
-    background: rgba(15,15,15,0.72);
-    backdrop-filter: blur(14px);
-    border-right: 2px solid rgba(255,185,0,0.45);
-    box-shadow: 0 0 22px rgba(255,185,0,0.35);
+    background: rgba(16,16,18,0.72);
+    backdrop-filter: blur(15px) saturate(140%);
+    border-right: 2px solid rgba(255,190,50,0.45);
+    box-shadow: 0 0 26px rgba(255,200,70,0.35);
+    transition: .30s ease;
 }
-
-/* Glow when hovered */
 section[data-testid="stSidebar"]:hover {
-    border-right: 2px solid var(--gold);
-    box-shadow: 0 0 35px rgba(255,185,0,0.65);
-    transition: .28s ease;
+    border-right: 3px solid var(--gold);
+    box-shadow: 0 0 42px rgba(255,200,70,0.75);
 }
-
-/* Sidebar text */
 section[data-testid="stSidebar"] * {
     color: var(--gold-soft) !important;
     font-weight: 500;
@@ -155,91 +129,88 @@ section[data-testid="stSidebar"] * {
 
 
 /* =======================================================================
-   🔘 BUTTONS — Luxury Gold Lift
+   🔘 GOLD BUTTONS — Smooth Lift + Glow
    ======================================================================= */
-.stButton > button{
-    background: linear-gradient(135deg,#FFBD00,#FFD96B);
-    color: #000;
-    padding: 7px 20px;
+.stButton > button {
+    background: linear-gradient(135deg,#FFBD00,#FFE17D);
+    color:#000;
+    padding:10px 24px;
     border-radius: var(--radius);
-    font-weight: 600;
-    border: none;
-    transition: .28s ease;
+    font-weight:700;
+    border:none;
+    transition:.28s cubic-bezier(.25,.85,.35,1.2);
 }
-
-.stButton > button:hover{
-    box-shadow: 0 0 26px var(--gold-glow);
-    transform: translateY(-2px) scale(1.03);
-}
-
-
-/* =======================================================================
-   🏛 SCROLLBAR
-   ======================================================================= */
-::-webkit-scrollbar{ width: 9px; }
-::-webkit-scrollbar-thumb{
-    background: var(--gold);
-    border-radius: 20px;
+.stButton > button:hover {
+    transform:translateY(-3px) scale(1.06);
+    box-shadow:0 0 30px rgba(255,215,0,0.75);
 }
 
 
 /* =======================================================================
-   📌 HEADERS — Golden Glow Typography
+   📌 GOLD SECTION HEADINGS — Royal Glow Titles
    ======================================================================= */
-h1, h2, h3 {
-    color: var(--gold-soft) !important;
-    text-shadow: 0 0 14px rgba(255,200,60,0.3);
+h1,h2,h3,h4 {
+    color:var(--gold-soft) !important;
+    text-shadow:0 0 18px rgba(255,210,60,0.35);
+    letter-spacing:.6px;
+    font-weight:700;
 }
 
-/* =======================================================================
-   ⚡ GOLD WAVE PAGE LOADER — Royal Entry Animation
-   ======================================================================= */
+/* Premium Section Divider */
+hr {
+    border:none;
+    height:2px;
+    background:linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin:20px 0;
+}
 
+
+/* =======================================================================
+   🌀 GOLD RING PAGE LOADER — Smooth Fade-Out
+   ======================================================================= */
 #gold-loader {
     position: fixed;
-    top:0; left:0;
-    width:100%; height:100%;
-    background: #0b0b0d;
+    inset: 0;
+    background:#09090a;
     display:flex;
-    align-items:center;
     justify-content:center;
+    align-items:center;
     z-index:99999;
-    animation:fadeOut 1.8s ease forwards;
-    animation-delay:1.6s;
+    animation:loaderFade 2.1s ease forwards;
+    animation-delay:1.66s;
 }
 
-/* Gold Wave Rings */
-.gold-wave {
-    width:90px; height:90px;
-    border-radius:50%;
-    border:4px solid rgba(255,184,0,0.35);
-    position:absolute;
-    animation:wave 1.6s infinite ease-out;
+/* Triple Ring */
+.gold-wave { 
+    width:90px;height:90px;border-radius:50%;
+    border:4px solid rgba(255,200,60,0.38);
+    position:absolute;animation:ring 1.6s infinite ease-out;
+}
+.gold-wave:nth-child(2){width:60px;height:60px;animation-delay:.25s;border-color:rgba(255,210,90,.55);}
+.gold-wave:nth-child(3){width:32px;height:32px;animation-delay:.5s;border-color:rgba(255,240,130,.9);}
+
+/* Rings expanding */
+@keyframes ring {
+    0% {transform:scale(.45);opacity:1;}
+    100% {transform:scale(2.5);opacity:0;}
 }
 
-.gold-wave:nth-child(2){
-    animation-delay:0.25s;
-    width:60px; height:60px;
-    border-color:rgba(255,204,60,0.55);
-}
-
-.gold-wave:nth-child(3){
-    animation-delay:0.55s;
-    width:30px; height:30px;
-    border-color:rgba(255,230,120,0.9);
-}
-
-/* WAVE EXPANSION */
-@keyframes wave{
-    0%{ transform:scale(0.4); opacity:1;}
-    100%{ transform:scale(2.8); opacity:0;}
-}
-
-/* Loader fade-out */
-@keyframes fadeOut{
-    0%{opacity:1;}
-    100%{opacity:0; visibility:hidden;}  
+/* Fade page loader */
+@keyframes loaderFade {
+    0% {opacity:1;}
+    100% {opacity:0;visibility:hidden;}
 }
 
 
-
+/* ======= PAGE TITLE HEADING ======= */
+.page-title {
+    text-align:center;
+    font-size:38px;
+    font-weight:800;
+    letter-spacing:1.2px;
+    margin-top:10px;
+    margin-bottom:22px;
+    color: #FFCB47;
+    text-shadow:0 0 16px rgba(255,215,70,0.55),
+                0 0 30px rgba(255,200,50,0.25);
+}

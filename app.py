@@ -233,6 +233,10 @@ except Exception as e:
 # 🔮 FORECASTING MODULE — FAST + OPTIMIZED + CLEAN
 # ============================================================
 
+st.markdown('<h1 class="page-title">📊 Personal Finance Dashboard</h1>', unsafe_allow_html=True)
+
+
+
 FIXED_RENT = 11600  # 🔸 fixed cost never forecasted, always added later
 
 
