@@ -223,59 +223,164 @@ except Exception as e:
     st.error("Could not load delete records")
     st.code(e)
 
+
+
 # ============================================================
-# 🔮 FORECASTING MODULE — MONTHLY + DAILY PREDICTION
+# 🔮 FORECASTING MODULE — IMPROVED (LOG SCALE + BETTER VISUALS)
 # ============================================================
 st.markdown("<h3>🔮 Forecasting & Prediction</h3>", unsafe_allow_html=True)
 
+# Helper: generic Prophet forecaster with log-transform
+def prophet_forecast(df, date_col, value_col, periods, freq, daily_seasonality=False, weekly_seasonality=True, monthly=True):
+    """Return history+forecast in original scale using Prophet with log1p transform."""
+    data = df[[date_col, value_col]].copy()
+    data = data.groupby(date_col)[value_col].sum().reset_index()
+    data = data.sort_values(date_col)
+
+    # Minimal data check
+    if len(data) < 3:
+        return None, "⚠ Need at least 3 data points for forecasting."
+
+    data.rename(columns={date_col: "ds", value_col: "y"}, inplace=True)
+    data["ds"] = pd.to_datetime(data["ds"])
+
+    # Log transform to stabilize variance
+    data["y_log"] = np.log1p(data["y"])
+
+    m = Prophet(
+        growth="linear",
+        daily_seasonality=daily_seasonality,
+        weekly_seasonality=weekly_seasonality,
+        yearly_seasonality=monthly  # for monthly series this acts like year pattern
+    )
+    m.fit(data[["ds", "y_log"]].rename(columns={"y_log": "y"}))
+
+    future = m.make_future_dataframe(periods=periods, freq=freq)
+    forecast = m.predict(future)
+
+    # Inverse transform back to rupees
+    forecast["yhat"]        = np.expm1(forecast["yhat"])
+    forecast["yhat_lower"]  = np.expm1(forecast["yhat_lower"])
+    forecast["yhat_upper"]  = np.expm1(forecast["yhat_upper"])
+
+    # Join actuals for plotting combined
+    hist = data[["ds", "y"]].copy()
+    return (hist, forecast), None
+
+
+# Simple Altair line with confidence band
+def plot_forecast(hist, forecast, title="Forecast"):
+    hist_plot = (
+        alt.Chart(hist)
+        .mark_line(point=True, strokeWidth=2)
+        .encode(
+            x="ds:T",
+            y=alt.Y("y:Q", title="Amount (₹)"),
+            tooltip=["ds:T", "y:Q"]
+        )
+        .properties(title=f"{title} — History", height=280)
+    )
+
+    fc = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].copy()
+
+    band = (
+        alt.Chart(fc)
+        .mark_area(opacity=0.18)
+        .encode(
+            x="ds:T",
+            y="yhat_lower:Q",
+            y2="yhat_upper:Q"
+        )
+    )
+
+    line = (
+        alt.Chart(fc)
+        .mark_line(color="#FFB300", strokeWidth=2)
+        .encode(
+            x="ds:T",
+            y="yhat:Q",
+            tooltip=["ds:T", "yhat:Q", "yhat_lower:Q", "yhat_upper:Q"]
+        )
+        .properties(title=f"{title} — Forecast", height=280)
+    )
+
+    return st.altair_chart(hist_plot + band + line, use_container_width=True)
+
+
 # ----------------------------------------------------------
-# MONTHLY FORECAST — NEXT 6 MONTHS
+# 📅 MONTHLY FORECAST — NEXT 6 MONTHS
 # ----------------------------------------------------------
 if st.button("📅 Predict Next 6 Months"):
-    
-    monthly_series = filtered.groupby("year_month")["amount"].sum().reset_index()
 
-    if len(monthly_series) < 3:
-        st.warning("⚠ Need minimum 3 months of data for monthly forecasting.")
+    # Group by year_month but turn into real dates at month start
+    monthly_series = filtered.copy()
+    monthly_series["year_month"] = pd.to_datetime(monthly_series["year_month"])
+
+    result, err = prophet_forecast(
+        df=monthly_series,
+        date_col="year_month",
+        value_col="amount",
+        periods=6,
+        freq="MS",                # Month Start
+        daily_seasonality=False,
+        weekly_seasonality=False,
+        monthly=True
+    )
+
+    if err:
+        st.warning(err)
     else:
-        monthly_series["ds"] = pd.to_datetime(monthly_series.year_month)
-        monthly_series.rename(columns={"amount": "y"}, inplace=True)
+        hist, forecast_m = result
+        st.success("📈 6-Month Forecast Generated (Improved Model)")
+        plot_forecast(hist, forecast_m, title="Monthly Spend Forecast")
 
-        m_model = Prophet()
-        m_model.fit(monthly_series[["ds","y"]])
+        st.dataframe(
+            forecast_m.tail(6)[["ds","yhat","yhat_lower","yhat_upper"]]
+            .rename(columns={
+                "ds":"Month",
+                "yhat":"Prediction (₹)",
+                "yhat_lower":"Lower Bound (₹)",
+                "yhat_upper":"Upper Bound (₹)"
+            }),
+            use_container_width=True
+        )
 
-        future_m = m_model.make_future_dataframe(periods=6, freq="ME")
-        forecast_m = m_model.predict(future_m)
-
-        st.success("📈 6-Month Forecast Generated!")
-        st.line_chart(forecast_m.set_index("ds")["yhat"])
-        st.dataframe(forecast_m.tail(6)[["ds","yhat","yhat_lower","yhat_upper"]]
-                     .rename(columns={"ds":"Month","yhat":"Prediction"}))
-
-
-st.markdown("---")  # divider line for premium separation
+st.markdown("---")  # divider
 
 
 # ----------------------------------------------------------
-# DAILY FORECAST — NEXT 30 DAYS
+# 📆 DAILY FORECAST — NEXT 30 DAYS
 # ----------------------------------------------------------
 if st.button("📆 Predict Next 30 Days (Daily)"):
 
-    daily_series = filtered.groupby("period")["amount"].sum().reset_index()
+    daily_series = filtered.copy()
+    daily_series["period"] = pd.to_datetime(daily_series["period"])
 
-    if len(daily_series) < 7:
-        st.warning("⚠ Need minimum 7 days of data for daily forecasting.")
+    result, err = prophet_forecast(
+        df=daily_series,
+        date_col="period",
+        value_col="amount",
+        periods=30,
+        freq="D",
+        daily_seasonality=False,      # keep it simpler
+        weekly_seasonality=True,      # weekly pattern
+        monthly=True
+    )
+
+    if err:
+        st.warning("⚠ Need minimum 7–10 days of data for reliable daily forecasting.")
     else:
-        daily_series["ds"] = pd.to_datetime(daily_series["period"])
-        daily_series.rename(columns={"amount":"y"}, inplace=True)
+        hist_d, forecast_d = result
+        st.success("📆 30-Day Daily Forecast Ready (Smoothed & Log-Scaled)")
+        plot_forecast(hist_d, forecast_d, title="Daily Spend Forecast")
 
-        d_model = Prophet(daily_seasonality=True)
-        d_model.fit(daily_series[["ds","y"]])
-
-        future_d = d_model.make_future_dataframe(periods=30, freq="D")
-        forecast_d = d_model.predict(future_d)
-
-        st.success("📆 30-Day Daily Forecast Ready!")
-        st.line_chart(forecast_d.set_index("ds")["yhat"])
-        st.dataframe(forecast_d.tail(30)[["ds","yhat","yhat_lower","yhat_upper"]]
-                     .rename(columns={"ds":"Date","yhat":"Predicted"}))
+        st.dataframe(
+            forecast_d.tail(30)[["ds","yhat","yhat_lower","yhat_upper"]]
+            .rename(columns={
+                "ds":"Date",
+                "yhat":"Predicted (₹)",
+                "yhat_lower":"Lower Bound (₹)",
+                "yhat_upper":"Upper Bound (₹)"
+            }),
+            use_container_width=True
+        )
