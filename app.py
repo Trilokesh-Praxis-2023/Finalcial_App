@@ -22,10 +22,13 @@ from datetime import datetime
 from utils.kpi_dashboard import render_kpis, get_income
 from utils.kpi_drilldown import render_kpi_suite
 from utils.forecasting_ml import forecasting_ui
-
-
 import threading, time, requests, os
 
+
+
+
+# ============================================================
+# 🛡 KEEP ALIVE FOR DEPLOYED APPS
 def keep_alive():
     url = os.getenv("APP_URL")  # add your Streamlit URL in .env
     while True:
@@ -36,6 +39,9 @@ def keep_alive():
         time.sleep(300)  # ping every 5 mins
 
 threading.Thread(target=keep_alive, daemon=True).start()
+
+
+
 
 # ============================================================
 # ⬛ PAGE CONFIG + TITLE
