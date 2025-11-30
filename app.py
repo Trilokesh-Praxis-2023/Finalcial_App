@@ -230,102 +230,167 @@ except Exception as e:
     st.code(e)
 
 # ============================================================
-# 🔮 FORECASTING MODULE — FAST + OPTIMIZED + CLEAN
+# 🔮 FORECASTING MODULE — FULL SMART ML SYSTEM
 # ============================================================
 
 st.markdown('<h1 class="page-title">📊 Personal Finance Dashboard</h1>', unsafe_allow_html=True)
 
+import joblib, os
+from datetime import timedelta
 
 
-FIXED_RENT = 11600  # 🔸 fixed cost never forecasted, always added later
+# ==============================
+#  🔥 GLOBAL SETTINGS
+# ==============================
+FIXED_RENT = 11600  # Monthly constant base
+MONTHLY_MODEL_PATH = "models/monthly_forecast_model.pkl"
+DAILY_MODEL_PATH   = "models/daily_forecast_model.pkl"
+
 
 
 # ============================================================
-# 📌 DAILY FORECAST (Prophet — Log Smoothed + Confidence Bands)
+#  📆 DAILY FORECAST — ML Based (Train + Predict)
 # ============================================================
-def predict_daily(df, periods=30):
 
-    df = df.copy()
+def train_daily_model(filtered):
+
+    df = filtered.copy()
     df["period"] = pd.to_datetime(df["period"])
     daily = df.groupby("period")["amount"].sum().reset_index()
 
-    if len(daily) < 7:
-        return None, "⚠ Need at least 7 days of data for daily forecast."
+    if len(daily) < 10:
+        st.warning("⚠ Need at least 10 days of data to train.")
+        return None
 
-    daily["y_log"] = np.log1p(daily["amount"])
+    daily["day"]   = daily["period"].dt.day
+    daily["dow"]   = daily["period"].dt.dayofweek
+    daily["month"] = daily["period"].dt.month
+    daily["t"]     = range(len(daily))
 
-    model = Prophet(weekly_seasonality=True, daily_seasonality=False)
-    model.fit(daily.rename(columns={"period": "ds", "y_log": "y"})[["ds","y"]])
+    X = daily[["day","dow","month","t"]]
+    y = daily["amount"].clip(lower=0)
 
-    future = model.make_future_dataframe(periods=periods, freq="D")
-    forecast = model.predict(future)
-
-    # reverse log-scaling back to ₹
-    forecast["yhat"] = np.expm1(forecast["yhat"])
-    return daily.rename(columns={"period": "ds","amount":"y"}), forecast
-
-
-# ============================================================
-# 📊 Plot Forecast Shared Visual (History + Curve + Confidence)
-# ============================================================
-def plot_forecast(hist, forecast, title):
-
-    base = alt.Chart(hist).mark_line(point=True, color="#4FC3F7").encode(
-        x="ds:T", y="y:Q"
-    )
-
-    band = alt.Chart(forecast).mark_area(opacity=0.18, color="#FFD95A").encode(
-        x="ds:T", y="yhat_upper:Q", y2="yhat_lower:Q"
-    )
-
-    line = alt.Chart(forecast).mark_line(color="#FFC107", strokeWidth=2.4).encode(
-        x="ds:T", y="yhat:Q"
-    ).properties(title=title)
-
-    st.altair_chart(base + band + line, use_container_width=True)
-
-
-# ============================================================
-# 🤖 MONTHLY FORECAST — XGBoost ML (Variable Spend Only)
-# ============================================================
-def predict_monthly_ml(filtered, future_months=6):
-
-    monthly = filtered.groupby("year_month")["amount"].sum().reset_index()
-    monthly["year_month"] = pd.to_datetime(monthly["year_month"])
-    monthly = monthly.sort_values("year_month")
-
-    if len(monthly) < 6:
-        st.warning("⚠ Need at least 6 months for ML forecasting.")
-        return
-
-    # feature engineering
-    monthly["month"] = monthly["year_month"].dt.month
-    monthly["year"]  = monthly["year_month"].dt.year
-    monthly["t"]     = range(len(monthly))              # time trend
-
-    # learn only variable spend (rent removed)
-    monthly["variable"] = (monthly["amount"] - FIXED_RENT).clip(lower=0)
-
-    X = monthly[["month","year","t"]]
-    y = monthly["variable"]
-
-    # ML training
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, shuffle=False
     )
 
     model = xgb.XGBRegressor(
-        n_estimators=420, learning_rate=0.06,
-        max_depth=5, subsample=0.9, colsample_bytree=0.9,
+        n_estimators=400, learning_rate=0.05,
+        max_depth=6, subsample=0.85, colsample_bytree=0.9,
+        reg_alpha=1.2, reg_lambda=1.3, objective="reg:squarederror"
+    )
+    model.fit(X_train, y_train)
+
+    mae = mean_absolute_error(y_test, model.predict(X_test))
+    st.success(f"📆 Daily Model Trained — MAE: ₹{mae:,.0f}")
+
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(model, DAILY_MODEL_PATH)
+
+    return model
+
+
+
+def predict_daily_ml(filtered, future_days=30):
+
+    if not os.path.exists(DAILY_MODEL_PATH):
+        st.error("⚠ Train Daily Model First!")
+        return
+    
+    model = joblib.load(DAILY_MODEL_PATH)
+    st.success("✔ Loaded Daily ML Model")
+
+    df = filtered.copy()
+    df["period"] = pd.to_datetime(df["period"])
+    daily = df.groupby("period")["amount"].sum().reset_index()
+
+    last_date = daily["period"].max()
+    future_dates = pd.date_range(last_date + timedelta(days=1), periods=future_days)
+
+    future = pd.DataFrame({"period": future_dates})
+    future["day"]   = future["period"].dt.day
+    future["dow"]   = future["period"].dt.dayofweek
+    future["month"] = future["period"].dt.month
+    future["t"]     = range(len(daily), len(daily)+future_days)
+
+    future["Forecast"] = model.predict(future[["day","dow","month","t"]]).clip(0)
+
+    # Chart + Table
+    hist = daily.rename(columns={"period":"Date","amount":"Actual"})
+    future = future.rename(columns={"period":"Date"})
+
+    chart = (
+        alt.Chart(hist).mark_line(point=True, color="#4FC3F7").encode(
+            x="Date:T", y="Actual:Q"
+        ) +
+        alt.Chart(future).mark_line(point=True, color="#FFC107", strokeDash=[4,3]).encode(
+            x="Date:T", y="Forecast:Q"
+        )
+    )
+    st.altair_chart(chart, use_container_width=True)
+    st.dataframe(future)
+
+
+
+# ============================================================
+#  🤖 MONTHLY FORECAST — ML Based (Train + Predict)
+# ============================================================
+
+def train_monthly_model(filtered):
+
+    monthly = filtered.groupby("year_month")["amount"].sum().reset_index()
+    monthly["year_month"] = pd.to_datetime(monthly["year_month"])
+
+    if len(monthly) < 6:
+        st.warning("⚠ Need minimum 6 months to train model.")
+        return None
+
+    monthly = monthly.sort_values("year_month")
+    monthly["month"] = monthly["year_month"].dt.month
+    monthly["year"]  = monthly["year_month"].dt.year
+    monthly["t"]     = range(len(monthly))
+    monthly["variable"] = (monthly["amount"] - FIXED_RENT).clip(lower=0)
+
+    X = monthly[["month","year","t"]]
+    y = monthly["variable"]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, shuffle=False)
+
+    model = xgb.XGBRegressor(
+        n_estimators=450, learning_rate=0.06,
+        max_depth=6, subsample=0.9, colsample_bytree=0.9,
         reg_alpha=1.1, reg_lambda=1.3, objective="reg:squarederror"
     )
     model.fit(X_train, y_train)
 
-    # evaluate
     mae = mean_absolute_error(y_test, model.predict(X_test))
-    st.info(f"📊 Forecast MAE: **₹{mae:,.0f}** (lower = better)")
+    st.success(f"📊 Monthly Model Trained — MAE: ₹{mae:,.0f}")
 
-    # forecast future
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(model, MONTHLY_MODEL_PATH)
+
+    return model
+
+
+
+def predict_monthly_ml(filtered, future_months=6):
+
+    if not os.path.exists(MONTHLY_MODEL_PATH):
+        st.error("⚠ Train Monthly Model First!")
+        return
+
+    model = joblib.load(MONTHLY_MODEL_PATH)
+    st.success("✔ Loaded Monthly ML Model")
+
+    monthly = filtered.groupby("year_month")["amount"].sum().reset_index()
+    monthly["year_month"] = pd.to_datetime(monthly["year_month"])
+    monthly = monthly.sort_values("year_month")
+
+    monthly["month"] = monthly["year_month"].dt.month
+    monthly["year"]  = monthly["year_month"].dt.year
+    monthly["t"]     = range(len(monthly))
+    monthly["variable"] = (monthly["amount"] - FIXED_RENT).clip(lower=0)
+
     future = pd.DataFrame({
         "year_month": pd.date_range(
             start=monthly["year_month"].iloc[-1] + pd.offsets.MonthBegin(),
@@ -336,13 +401,12 @@ def predict_monthly_ml(filtered, future_months=6):
     future["year"]  = future["year_month"].dt.year
     future["t"]     = range(len(monthly), len(monthly)+future_months)
 
-    future["var_forecast"] = model.predict(future[["month","year","t"]]).clip(0)
-    future["Total_Predicted"] = future["var_forecast"] + FIXED_RENT
+    future["variable_pred"] = model.predict(future[["month","year","t"]]).clip(0)
+    future["Forecast"] = future["variable_pred"] + FIXED_RENT
 
-    # plot
     combined = pd.concat([
         monthly.rename(columns={"year_month":"Month","amount":"Actual"})[["Month","Actual"]],
-        future.rename(columns={"year_month":"Month","Total_Predicted":"Forecast"})[["Month","Forecast"]]
+        future.rename(columns={"year_month":"Month","Forecast":"Forecast"})[["Month","Forecast"]]
     ])
 
     chart = (
@@ -354,19 +418,37 @@ def predict_monthly_ml(filtered, future_months=6):
         )
     )
     st.altair_chart(chart, use_container_width=True)
-    st.dataframe(future)
+    st.dataframe(future.rename(columns={
+        "year_month":"Month",
+        "Forecast":"Predicted Spend ₹",
+        "variable_pred":"Variable Component ₹"
+    }))
+
 
 
 # ============================================================
-# 🔘 ACTION BUTTONS
+#  🔘 UI BUTTONS — All Inside One Section
 # ============================================================
-if st.button("🤖 Predict Next 6 Months (ML Smart Forecast)"):
-    predict_monthly_ml(filtered)
 
-if st.button("📅 Predict Next 30 Days (Daily Prophet)"):
-    result = predict_daily(filtered)
-    if result[0] is None:
-        st.warning(result[1])
-    else:
-        hist, fc = result
-        plot_forecast(hist, fc, "Daily Spend Forecast")
+st.subheader("🧠 AI Forecasting & Predictive Analysis")
+
+train1, train2 = st.columns(2)
+
+with train1:
+    if st.button("🛠 Train DAILY Model"):
+        train_daily_model(filtered)
+
+with train2:
+    if st.button("🛠 Train MONTHLY Model"):
+        train_monthly_model(filtered)
+
+
+predict1, predict2 = st.columns(2)
+
+with predict1:
+    if st.button("📅 Predict Next 30 Days (Daily ML)"):
+        predict_daily_ml(filtered)
+
+with predict2:
+    if st.button("🤖 Predict Next 6 Months (Monthly ML)"):
+        predict_monthly_ml(filtered)
