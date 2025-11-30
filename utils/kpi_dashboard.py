@@ -141,33 +141,35 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     i2.metric("📊 Balance Left", f"₹{balance:,.0f}")
     i3.metric("💾 Savings Rate", f"{save_rate:.1f}%")
     i4.metric("⚡ % Spent",f"{pct:.1f}%",status)
-    
+        
     # ===================================================================
-    # 🔹 ROW 5 — BUDGET SURVIVAL
+    # 🔹 ROW 5 — BUDGET SURVIVAL (Daily Reset Smart Tracker)
     # ===================================================================
     st.markdown("### 💼 Budget Survival Tracker")
 
     today = pd.Timestamp.today()
-    current_month_total = filtered[filtered.year_month == today.strftime("%Y-%m")]["amount"].sum()
+    current_month = today.strftime("%Y-%m")
+
+    current_month_total = filtered[filtered.year_month == current_month]["amount"].sum()
 
     spent = current_month_total
     left  = MONTHLY_BUDGET - spent
 
-    days_total = pd.Period(today,freq="M").days_in_month
+    days_total = pd.Period(today, freq="M").days_in_month
     days_left  = max(days_total - today.day, 1)
 
-    daily_limit   = left / days_left                    # how much you can spend per day from now
-    ideal_per_day = (18000 - 12800) / days_total        # your custom formula distributed across month
+    # 🔥 New Smart Daily Reset Formula
+    new_daily_target = left / days_left  # recalculated fresh every day
+    used_today = filtered[filtered.period.dt.date == today.date()]["amount"].sum()
+    save_per_day = max(new_daily_target - used_today, 0)  # remaining amount to stay safe today
 
-    # 💾 DAILY SAVING REQUIRED TO STAY SAFE
-    save_per_day = ideal_per_day - daily_limit          # 🔥 THIS IS THE NEW VALUE
-
-    c6_1, c6_2, c6_3, c6_4, c6_5 = st.columns(5)
-    c6_1.metric("💰 Budget Left", f"₹{left:,.0f}")
-    c6_2.metric("📅 Days Left", f"{days_left} days")
-    c6_3.metric("⚡ Allowed Per Day", f"₹{daily_limit:,.0f}/day")
-    c6_4.metric("🏁 Ideal/Day", f"₹{ideal_per_day:,.0f}")
-    c6_5.metric("💾 Save/Day Needed", f"₹{save_per_day:,.0f}")   # 🔥 NEW METRIC SHOWN
+    # ====================== UI CARDS ==========================
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("💰 Budget Left", f"₹{left:,.0f}")
+    c2.metric("📅 Days Left", f"{days_left} days")
+    c3.metric("⚡ Allowed Today", f"₹{new_daily_target:,.0f}")
+    c4.metric("🛒 Spent Today", f"₹{used_today:,.0f}")
+    c5.metric("💾 Save Today", f"₹{save_per_day:,.0f}")  # 🔥 Daily reset smart saving target
 
     # ===================================================================
     # 🔹 CATEGORY SHARE TABLE (fixed)
