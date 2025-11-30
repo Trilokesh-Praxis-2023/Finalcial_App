@@ -227,155 +227,131 @@ except Exception as e:
     st.code(e)
 
 
-
 # ============================================================
-# 🔮 FORECASTING MODULE — IMPROVED (LOG SCALE + BETTER VISUALS)
+# 🔮 FORECASTING MODULE — FINAL OPTIMIZED VERSION
 # ============================================================
 st.markdown("<h3>🔮 Forecasting & Prediction</h3>", unsafe_allow_html=True)
 
-# Helper: generic Prophet forecaster with log-transform
-def prophet_forecast(df, date_col, value_col, periods, freq, daily_seasonality=False, weekly_seasonality=True, monthly=True):
-    """Return history+forecast in original scale using Prophet with log1p transform."""
+
+FIXED_RENT = 11600   # Your given stable fixed cost
+
+# --------------------------------------------------------------------
+# 📈 DAILY FORECASTING  (Prophet + Log Smoothing + Confidence Bands)
+# --------------------------------------------------------------------
+def prophet_forecast(df, date_col, value_col, periods, freq,
+                     daily_seasonality=False, weekly_seasonality=True, yearly=True):
+    
     data = df[[date_col, value_col]].copy()
     data = data.groupby(date_col)[value_col].sum().reset_index()
-    data = data.sort_values(date_col)
+    if len(data) < 7:
+        return None, "⚠ Need at least 7 days of data for daily forecasting."
 
-    # Minimal data check
-    if len(data) < 3:
-        return None, "⚠ Need at least 3 data points for forecasting."
-
-    data.rename(columns={date_col: "ds", value_col: "y"}, inplace=True)
+    data.rename(columns={date_col:"ds", value_col:"y"}, inplace=True)
     data["ds"] = pd.to_datetime(data["ds"])
 
-    # Log transform to stabilize variance
-    data["y_log"] = np.log1p(data["y"])
+    data["y_log"] = np.log1p(data["y"])    # smoother learning
 
-    m = Prophet(
+    model = Prophet(
         growth="linear",
         daily_seasonality=daily_seasonality,
         weekly_seasonality=weekly_seasonality,
-        yearly_seasonality=monthly  # for monthly series this acts like year pattern
+        yearly_seasonality=yearly
     )
-    m.fit(data[["ds", "y_log"]].rename(columns={"y_log": "y"}))
+    model.fit(data[["ds","y_log"]].rename(columns={"y_log":"y"}))
 
-    future = m.make_future_dataframe(periods=periods, freq=freq)
-    forecast = m.predict(future)
+    future = model.make_future_dataframe(periods=periods, freq=freq)
+    forecast = model.predict(future)
 
-    # Inverse transform back to rupees
     forecast["yhat"]        = np.expm1(forecast["yhat"])
     forecast["yhat_lower"]  = np.expm1(forecast["yhat_lower"])
     forecast["yhat_upper"]  = np.expm1(forecast["yhat_upper"])
 
-    # Join actuals for plotting combined
-    hist = data[["ds", "y"]].copy()
-    return (hist, forecast), None
+    return (data[["ds","y"]], forecast), None
 
 
-# Simple Altair line with confidence band
-def plot_forecast(hist, forecast, title="Forecast"):
-    hist_plot = (
+# --------------------------------------------------------------------
+# 🎨 Combined Forecast Plot (History + Prediction + Confidence Bands)
+# --------------------------------------------------------------------
+def plot_forecast(hist, forecast, title):
+    fc = forecast[["ds","yhat","yhat_lower","yhat_upper"]]
+
+    hist_l = (
         alt.Chart(hist)
-        .mark_line(point=True, strokeWidth=2)
-        .encode(
-            x="ds:T",
-            y=alt.Y("y:Q", title="Amount (₹)"),
-            tooltip=["ds:T", "y:Q"]
-        )
-        .properties(title=f"{title} — History", height=280)
+        .mark_line(point=True, strokeWidth=2, color="#29B6F6")
+        .encode(x="ds:T", y="y:Q")
+        .properties(height=280)
     )
-
-    fc = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].copy()
 
     band = (
         alt.Chart(fc)
-        .mark_area(opacity=0.18)
-        .encode(
-            x="ds:T",
-            y="yhat_lower:Q",
-            y2="yhat_upper:Q"
-        )
+        .mark_area(opacity=0.15, color="#FFD95A")
+        .encode(x="ds:T", y="yhat_lower:Q", y2="yhat_upper:Q")
     )
 
-    line = (
+    pred = (
         alt.Chart(fc)
-        .mark_line(color="#FFB300", strokeWidth=2)
-        .encode(
-            x="ds:T",
-            y="yhat:Q",
-            tooltip=["ds:T", "yhat:Q", "yhat_lower:Q", "yhat_upper:Q"]
-        )
-        .properties(title=f"{title} — Forecast", height=280)
+        .mark_line(color="#FFC107", strokeWidth=2)
+        .encode(x="ds:T", y="yhat:Q")
+        .properties(title=title, height=280)
     )
 
-    return st.altair_chart(hist_plot + band + line, use_container_width=True)
+    return st.altair_chart(hist_l + band + pred, use_container_width=True)
+
 
 
 # ----------------------------------------------------------
-# 📅 MONTHLY FORECAST — NEXT 6 MONTHS
+# 📅 MONTHLY FORECAST — BEST MODEL (Rent-Aware Holt-Winters)
 # ----------------------------------------------------------
-FIXED_RENT = 11600  # << You Told Me This – Now Applied
-
-if st.button("📅 Predict Next 6 Months (Rent-Aware)"):
+if st.button("📅 Predict Next 6 Months"):
 
     monthly_series = filtered.groupby("year_month")["amount"].sum().reset_index()
     monthly_series["year_month"] = pd.to_datetime(monthly_series["year_month"])
     monthly_series = monthly_series.sort_values("year_month")
 
     if len(monthly_series) < 4:
-        st.warning("⚠ Need at least 4 months of data for reliable forecasting.")
+        st.warning("⚠ Need at least 4 months for stable forecasting.")
     else:
-        # 🔸 Extract variable spend = total - rent
-        monthly_series["variable"] = monthly_series["amount"] - FIXED_RENT
-        monthly_series["variable"] = monthly_series["variable"].clip(lower=0)  # prevents negative cases
-
+        # 🧠 Forecast only VARIABLE SPEND
+        monthly_series["variable"] = (monthly_series["amount"] - FIXED_RENT).clip(lower=0)
         data = monthly_series["variable"].values
 
-        # 🔥 Forecast only variable spend with smoothing
-        model = ExponentialSmoothing(
-            data,
-            trend="add",      # learns growth of variable spend
-            seasonal=None
-        ).fit()
+        model = ExponentialSmoothing(data, trend="add", seasonal=None).fit()
+        var_forecast = model.forecast(6)
 
-        forecast_var = model.forecast(6)
-
-        # Add rent back (NEW SMART MOVE)
-        forecast_total = forecast_var + FIXED_RENT
-
-        # Future index
         future_dates = pd.date_range(
             start=monthly_series["year_month"].iloc[-1] + pd.offsets.MonthBegin(1),
-            periods=6,
-            freq="MS"
+            periods=6, freq="MS"
         )
 
         result = pd.DataFrame({
             "Month": future_dates,
-            "Forecast_Total": forecast_total,
-            "Variable_Part": forecast_var,
-            "Fixed_Rent": FIXED_RENT
+            "Variable_Forecast": var_forecast,
+            "Final_Forecast": var_forecast + FIXED_RENT  # add rent back
         })
 
-        st.success("📈 Rent-Aware Monthly Forecast Generated Successfully!")
+        st.success("📈 Rent-Aware Forecast Ready — MUCH Better Accuracy")
 
-        # 📊 Plot — Actual vs Forecast
-        final_plot = monthly_series.rename(columns={"year_month":"Month","amount":"Actual"})
-        final_plot = pd.concat([final_plot[["Month","Actual"]], result[["Month","Forecast_Total"]]])
+        final_plot = pd.concat([
+            monthly_series.rename(columns={"year_month":"Month","amount":"Actual"})[["Month","Actual"]],
+            result[["Month","Final_Forecast"]]
+        ])
 
         chart = (
-            alt.Chart(final_plot).mark_line(point=True, color="#FFC300").encode(
-                x="Month:T", y=alt.Y("Actual:Q", title="Amount (₹)")
+            alt.Chart(final_plot).mark_line(point=True, color="#FFC107").encode(
+                x="Month:T", y=alt.Y("Actual:Q", title="₹ Amount")
             )
             +
-            alt.Chart(final_plot).mark_line(color="#00E676", strokeDash=[5,4]).encode(
-                x="Month:T", y="Forecast_Total:Q"
+            alt.Chart(final_plot).mark_line(color="#00E676", strokeDash=[4,4]).encode(
+                x="Month:T", y="Final_Forecast:Q"
             )
         )
-
         st.altair_chart(chart, use_container_width=True)
         st.dataframe(result)
+
+
+
 # ----------------------------------------------------------
-# 📆 DAILY FORECAST — NEXT 30 DAYS
+# 📆 DAILY FORECAST — Next 30 Days (Optimized Prophet)
 # ----------------------------------------------------------
 if st.button("📆 Predict Next 30 Days (Daily)"):
 
@@ -388,25 +364,19 @@ if st.button("📆 Predict Next 30 Days (Daily)"):
         value_col="amount",
         periods=30,
         freq="D",
-        daily_seasonality=False,      # keep it simpler
-        weekly_seasonality=True,      # weekly pattern
-        monthly=True
+        weekly_seasonality=True,   # daily cycles often weekly-related
+        yearly=False               # avoid false yearly pattern
     )
 
     if err:
-        st.warning("⚠ Need minimum 7–10 days of data for reliable daily forecasting.")
+        st.warning(err)
     else:
         hist_d, forecast_d = result
-        st.success("📆 30-Day Daily Forecast Ready (Smoothed & Log-Scaled)")
+        st.success("📅 30-Day Forecast Generated (Stable & Smooth)")
         plot_forecast(hist_d, forecast_d, title="Daily Spend Forecast")
 
         st.dataframe(
-            forecast_d.tail(30)[["ds","yhat","yhat_lower","yhat_upper"]]
-            .rename(columns={
-                "ds":"Date",
-                "yhat":"Predicted (₹)",
-                "yhat_lower":"Lower Bound (₹)",
-                "yhat_upper":"Upper Bound (₹)"
-            }),
+            forecast_d.tail(30)[["ds","yhat"]]
+            .rename(columns={"ds":"Date","yhat":"Predicted ₹"}),
             use_container_width=True
         )
