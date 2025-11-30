@@ -21,6 +21,8 @@ from datetime import datetime
 # 🚀 Imported KPI Dashboards
 from kpi_dashboard import render_kpis, get_income
 from kpi_drilldown import render_kpi_suite
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
 
 import threading, time, requests, os
 
@@ -311,43 +313,65 @@ def plot_forecast(hist, forecast, title="Forecast"):
 # ----------------------------------------------------------
 # 📅 MONTHLY FORECAST — NEXT 6 MONTHS
 # ----------------------------------------------------------
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+# ----------------------------------------------------------
+# 📅 MONTHLY FORECAST — Improved Holt-Winters Model
+# ----------------------------------------------------------
 if st.button("📅 Predict Next 6 Months"):
 
-    # Group by year_month but turn into real dates at month start
-    monthly_series = filtered.copy()
+    monthly_series = filtered.groupby("year_month")["amount"].sum().reset_index()
     monthly_series["year_month"] = pd.to_datetime(monthly_series["year_month"])
+    monthly_series = monthly_series.sort_values("year_month")
 
-    result, err = prophet_forecast(
-        df=monthly_series,
-        date_col="year_month",
-        value_col="amount",
-        periods=6,
-        freq="MS",                # Month Start
-        daily_seasonality=False,
-        weekly_seasonality=False,
-        monthly=True
-    )
-
-    if err:
-        st.warning(err)
+    if len(monthly_series) < 4:
+        st.warning("⚠ Need at least 4 months for stable monthly forecasting.")
     else:
-        hist, forecast_m = result
-        st.success("📈 6-Month Forecast Generated (Improved Model)")
-        plot_forecast(hist, forecast_m, title="Monthly Spend Forecast")
+        data = monthly_series["amount"].values
 
-        st.dataframe(
-            forecast_m.tail(6)[["ds","yhat","yhat_lower","yhat_upper"]]
-            .rename(columns={
-                "ds":"Month",
-                "yhat":"Prediction (₹)",
-                "yhat_lower":"Lower Bound (₹)",
-                "yhat_upper":"Upper Bound (₹)"
-            }),
-            use_container_width=True
+        # 🔥 BEST MODEL FOR YOUR DATA
+        model = ExponentialSmoothing(
+            data,
+            trend="add",     # learns month-on-month growth
+            seasonal=None    # no fake seasonality = more stable forecast
+        ).fit()
+
+        forecast = model.forecast(6)
+
+        # Build visual dataframe
+        future_dates = pd.date_range(
+            start=monthly_series["year_month"].iloc[-1] + pd.offsets.MonthBegin(1),
+            periods=6,
+            freq="MS"
         )
 
-st.markdown("---")  # divider
+        result = pd.DataFrame({
+            "Month": future_dates,
+            "Forecast": forecast
+        })
 
+        st.success("📈 Holt-Winters Monthly Forecast Ready!")
+        
+        # 📊 Combined view (History + Prediction)
+        final_plot = pd.concat([
+            monthly_series.rename(columns={"year_month":"Month","amount":"Actual"}),
+            result
+        ])
+
+        chart = alt.Chart(final_plot).mark_line(point=True).encode(
+            x="Month:T",
+            y=alt.Y("Actual:Q", title="Amount (₹)"),
+            color=alt.value("#FFC300")
+        ) + alt.Chart(final_plot).mark_line(
+            color="#00E676",
+            strokeDash=[4,4]
+        ).encode(
+            x="Month:T",
+            y="Forecast:Q"
+        )
+
+        st.altair_chart(chart, use_container_width=True)
+        st.dataframe(result)
 
 # ----------------------------------------------------------
 # 📆 DAILY FORECAST — NEXT 30 DAYS
