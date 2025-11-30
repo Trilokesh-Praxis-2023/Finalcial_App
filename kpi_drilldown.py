@@ -216,30 +216,50 @@ def render_kpi_suite(filtered, get_income):
         labels = alt.Chart(month_sum).mark_text(dy=-10,fontSize=11).encode(x="m:N", y="amount:Q", text="amount:Q")
 
         st.altair_chart(bars+labels, use_container_width=True)
-        
+    
+
     # =========================================================
-    # 🔢 11️⃣ Day-Wise Spend Chart
+    # 🔢 11️⃣ Day-Wise Spend Chart — WITH TEXT VALUES
     # =========================================================
-    with st.expander("📅 Day-Wise Spend Trend (Daily Transactions)"):
+    with st.expander("📅 Day-Wise Spend Trend (with Value Labels)"):
 
         daily = source.copy()
         daily["period"] = pd.to_datetime(daily["period"])
         daily = daily.groupby("period")["amount"].sum().reset_index()
 
-        # Trend line + dot points
-        line = alt.Chart(daily).mark_line(color="#FFA500", strokeWidth=2).encode(
-            x="period:T", y="amount:Q"
-        )
-        dots = alt.Chart(daily).mark_circle(size=60, color="#FFC300").encode(
-            x="period:T", y="amount:Q", tooltip=["period","amount"]
+        # Main trend line
+        line = (
+            alt.Chart(daily)
+            .mark_line(color="#FFA500", strokeWidth=2)
+            .encode(x="period:T", y="amount:Q")
         )
 
-        st.altair_chart(line + dots, use_container_width=True)
+        # Circles for nodes
+        dots = (
+            alt.Chart(daily)
+            .mark_circle(size=65, color="#FFC300")
+            .encode(x="period:T", y="amount:Q")
+        )
 
-        # summary points
-        st.info(f"📌 Highest daily spend: **₹{daily.amount.max():,.0f}**")
-        st.success(f"📈 Average daily spend: **₹{daily.amount.mean():,.0f}**")
-        st.error(f"📉 Lowest daily spend: **₹{daily.amount.min():,.0f}**")
+        # VALUE LABELS ON EACH POINT (supplied request 🔥)
+        text = (
+            alt.Chart(daily)
+            .mark_text(
+                dy=-12,               # position text above dot
+                fontSize=10,
+                fontWeight="bold",
+                color="white"
+            )
+            .encode(x="period:T", y="amount:Q", text="amount:Q")
+        )
+
+        st.altair_chart(line + dots + text, use_container_width=True)
+
+        # Summary insights
+        st.write("---")
+        st.info(f"📌 Highest Daily Spend: **₹{daily.amount.max():,.0f}**")
+        st.success(f"📈 Average Daily Spend: **₹{daily.amount.mean():,.0f}**")
+        st.error(f"📉 Lowest Daily Spend: **₹{daily.amount.min():,.0f}**")
 
 
 
