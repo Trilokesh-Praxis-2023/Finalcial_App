@@ -141,39 +141,49 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     i2.metric("📊 Balance Left", f"₹{balance:,.0f}")
     i3.metric("💾 Savings Rate", f"{save_rate:.1f}%")
     i4.metric("⚡ % Spent",f"{pct:.1f}%",status)
+
+
     # ===================================================================
-    # 🔹 ROW 5 — BUDGET SURVIVAL (Fixed Daily Spend Logic)
+    # 🔹 ROW 5 — BUDGET SURVIVAL (FINAL – Fixed Daily Spend Formula)
     # ===================================================================
     st.markdown("### 💼 Budget Survival Tracker")
 
     today = pd.Timestamp.today()
     current_month = today.strftime("%Y-%m")
 
+    # total spent this month
     current_month_total = filtered[filtered.year_month == current_month]["amount"].sum()
 
-    # Fixed constants
+    # constants
     MONTHLY_BUDGET = 18000
     FIXED_RENT     = 13000
 
     days_total = pd.Period(today, freq="M").days_in_month
+    days_left = max(days_total - today.day, 1)
 
-    # 📌 DAILY BUDGET (remains SAME every day — monthly fixed logic)
-    daily_budget = (MONTHLY_BUDGET - FIXED_RENT) / days_total
+    # =====================================================
+    # 📌 FIXED DAILY BUDGET ACROSS WHOLE MONTH
+    # =====================================================
+    daily_budget = (MONTHLY_BUDGET - FIXED_RENT) / days_total  # stays same everyday
 
-    # 🔥 Actual spend today
+    # spent today
     spent_today = filtered[filtered.period.dt.date == today.date()]["amount"].sum()
 
-    # 🔥 SAVE TODAY VALUE
+    # save today remaining
     save_today = daily_budget - spent_today
-    save_today = round(save_today, 2)
 
-    # ====================== UI Metrics ==========================
+    # monthly balance remaining
+    budget_left = MONTHLY_BUDGET - current_month_total
+
+    # ====================== UI ==========================
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("💰 Monthly Budget", f"₹{MONTHLY_BUDGET:,}")
-    c2.metric("🏠 Fixed Rent", f"₹{FIXED_RENT:,}")
-    c3.metric("📅 Total Days", f"{days_total} days")
-    c4.metric("⚡ Daily Budget", f"₹{daily_budget:,.0f}")
+
+    c1.metric("💰 Budget Left", f"₹{budget_left:,.0f}")
+    c2.metric("📅 Days Left", f"{days_left}")
+    c3.metric("⚡ Daily Budget", f"₹{daily_budget:,.0f}")
+    c4.metric("🛒 Spent Today", f"₹{spent_today:,.0f}")
     c5.metric("💾 Save Today", f"₹{save_today:,.0f}")
+
 
     # ===================================================================
     # 🔹 CATEGORY SHARE TABLE (fixed)
