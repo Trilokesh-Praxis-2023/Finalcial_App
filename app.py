@@ -313,32 +313,36 @@ def plot_forecast(hist, forecast, title="Forecast"):
 # ----------------------------------------------------------
 # 📅 MONTHLY FORECAST — NEXT 6 MONTHS
 # ----------------------------------------------------------
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
+FIXED_RENT = 11600  # << You Told Me This – Now Applied
 
-# ----------------------------------------------------------
-# 📅 MONTHLY FORECAST — Improved Holt-Winters Model
-# ----------------------------------------------------------
-if st.button("📅 Predict Next 6 Months"):
+if st.button("📅 Predict Next 6 Months (Rent-Aware)"):
 
     monthly_series = filtered.groupby("year_month")["amount"].sum().reset_index()
     monthly_series["year_month"] = pd.to_datetime(monthly_series["year_month"])
     monthly_series = monthly_series.sort_values("year_month")
 
     if len(monthly_series) < 4:
-        st.warning("⚠ Need at least 4 months for stable monthly forecasting.")
+        st.warning("⚠ Need at least 4 months of data for reliable forecasting.")
     else:
-        data = monthly_series["amount"].values
+        # 🔸 Extract variable spend = total - rent
+        monthly_series["variable"] = monthly_series["amount"] - FIXED_RENT
+        monthly_series["variable"] = monthly_series["variable"].clip(lower=0)  # prevents negative cases
 
-        # 🔥 BEST MODEL FOR YOUR DATA
+        data = monthly_series["variable"].values
+
+        # 🔥 Forecast only variable spend with smoothing
         model = ExponentialSmoothing(
             data,
-            trend="add",     # learns month-on-month growth
-            seasonal=None    # no fake seasonality = more stable forecast
+            trend="add",      # learns growth of variable spend
+            seasonal=None
         ).fit()
 
-        forecast = model.forecast(6)
+        forecast_var = model.forecast(6)
 
-        # Build visual dataframe
+        # Add rent back (NEW SMART MOVE)
+        forecast_total = forecast_var + FIXED_RENT
+
+        # Future index
         future_dates = pd.date_range(
             start=monthly_series["year_month"].iloc[-1] + pd.offsets.MonthBegin(1),
             periods=6,
@@ -347,32 +351,29 @@ if st.button("📅 Predict Next 6 Months"):
 
         result = pd.DataFrame({
             "Month": future_dates,
-            "Forecast": forecast
+            "Forecast_Total": forecast_total,
+            "Variable_Part": forecast_var,
+            "Fixed_Rent": FIXED_RENT
         })
 
-        st.success("📈 Holt-Winters Monthly Forecast Ready!")
-        
-        # 📊 Combined view (History + Prediction)
-        final_plot = pd.concat([
-            monthly_series.rename(columns={"year_month":"Month","amount":"Actual"}),
-            result
-        ])
+        st.success("📈 Rent-Aware Monthly Forecast Generated Successfully!")
 
-        chart = alt.Chart(final_plot).mark_line(point=True).encode(
-            x="Month:T",
-            y=alt.Y("Actual:Q", title="Amount (₹)"),
-            color=alt.value("#FFC300")
-        ) + alt.Chart(final_plot).mark_line(
-            color="#00E676",
-            strokeDash=[4,4]
-        ).encode(
-            x="Month:T",
-            y="Forecast:Q"
+        # 📊 Plot — Actual vs Forecast
+        final_plot = monthly_series.rename(columns={"year_month":"Month","amount":"Actual"})
+        final_plot = pd.concat([final_plot[["Month","Actual"]], result[["Month","Forecast_Total"]]])
+
+        chart = (
+            alt.Chart(final_plot).mark_line(point=True, color="#FFC300").encode(
+                x="Month:T", y=alt.Y("Actual:Q", title="Amount (₹)")
+            )
+            +
+            alt.Chart(final_plot).mark_line(color="#00E676", strokeDash=[5,4]).encode(
+                x="Month:T", y="Forecast_Total:Q"
+            )
         )
 
         st.altair_chart(chart, use_container_width=True)
         st.dataframe(result)
-
 # ----------------------------------------------------------
 # 📆 DAILY FORECAST — NEXT 30 DAYS
 # ----------------------------------------------------------

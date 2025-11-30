@@ -260,7 +260,9 @@ def render_kpi_suite(filtered, get_income):
         st.info(f"📌 Highest Daily Spend: **₹{daily.amount.max():,.0f}**")
         st.success(f"📈 Average Daily Spend: **₹{daily.amount.mean():,.0f}**")
         st.error(f"📉 Lowest Daily Spend: **₹{daily.amount.min():,.0f}**")
-        # =========================================================
+
+
+    # =========================================================
     # 🔥 12️⃣ Weekly Spend Strip Line (Minimal Momentum View)
     # =========================================================
     with st.expander("📊 Weekly Spend Strip-Line (Low-Noise Trend)"):
@@ -309,8 +311,8 @@ def render_kpi_suite(filtered, get_income):
 
 
     # =========================================================
-# 🔥 13️⃣ Heatmap Calendar — Daily Spend Intensity (FIXED FINAL)
-# =========================================================
+    # 🔥 13️⃣ Heatmap Calendar — Daily Spend Intensity (FIXED FINAL)
+    # =========================================================
     with st.expander("📅 Heatmap Calendar – Daily Spend Intensity"):
 
         cal = source.copy()
