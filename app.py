@@ -302,6 +302,9 @@ def plot_forecast(hist, forecast, title):
 # ----------------------------------------------------------
 # 📅 MONTHLY FORECAST — BEST MODEL (Rent-Aware Holt-Winters)
 # ----------------------------------------------------------
+# ----------------------------------------------------------
+# 📅 MONTHLY FORECAST — Rent-Aware + Zero-Bound Variable Spend
+# ----------------------------------------------------------
 if st.button("📅 Predict Next 6 Months"):
 
     monthly_series = filtered.groupby("year_month")["amount"].sum().reset_index()
@@ -311,13 +314,28 @@ if st.button("📅 Predict Next 6 Months"):
     if len(monthly_series) < 4:
         st.warning("⚠ Need at least 4 months for stable forecasting.")
     else:
-        # 🧠 Forecast only VARIABLE SPEND
+        # 1) compute variable cost (never negative)
         monthly_series["variable"] = (monthly_series["amount"] - FIXED_RENT).clip(lower=0)
+
         data = monthly_series["variable"].values
 
-        model = ExponentialSmoothing(data, trend="add", seasonal=None).fit()
+        # 2) train variable-spend model
+        model = ExponentialSmoothing(
+            data,
+            trend="add",
+            seasonal=None
+        ).fit()
+
+        # 3) forecast next 6 months
         var_forecast = model.forecast(6)
 
+        # 4) ensure NO negative prediction ever
+        var_forecast = np.clip(var_forecast, 0, None)  # SAFE FIX 🔥
+
+        # 5) add rent back to rebuild realistic total spend
+        total_forecast = var_forecast + FIXED_RENT
+
+        # build date index
         future_dates = pd.date_range(
             start=monthly_series["year_month"].iloc[-1] + pd.offsets.MonthBegin(1),
             periods=6, freq="MS"
@@ -326,11 +344,12 @@ if st.button("📅 Predict Next 6 Months"):
         result = pd.DataFrame({
             "Month": future_dates,
             "Variable_Forecast": var_forecast,
-            "Final_Forecast": var_forecast + FIXED_RENT  # add rent back
+            "Final_Forecast": total_forecast
         })
 
-        st.success("📈 Rent-Aware Forecast Ready — MUCH Better Accuracy")
+        st.success("📈 Rent-Aware Monthly Forecast Ready (No Negative Values)")
 
+        # 🟡 Visual — Actual vs Forecast
         final_plot = pd.concat([
             monthly_series.rename(columns={"year_month":"Month","amount":"Actual"})[["Month","Actual"]],
             result[["Month","Final_Forecast"]]
