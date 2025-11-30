@@ -260,6 +260,103 @@ def render_kpi_suite(filtered, get_income):
         st.info(f"📌 Highest Daily Spend: **₹{daily.amount.max():,.0f}**")
         st.success(f"📈 Average Daily Spend: **₹{daily.amount.mean():,.0f}**")
         st.error(f"📉 Lowest Daily Spend: **₹{daily.amount.min():,.0f}**")
+        # =========================================================
+    # 🔥 12️⃣ Weekly Spend Strip Line (Minimal Momentum View)
+    # =========================================================
+    with st.expander("📊 Weekly Spend Strip-Line (Low-Noise Trend)"):
+
+        weekly = source.copy()
+        weekly["period"] = pd.to_datetime(weekly["period"])
+        weekly["week"]   = weekly["period"].dt.isocalendar().week
+        weekly["year"]   = weekly["period"].dt.year
+        weekly["year_week"] = weekly["year"].astype(str) + "-W" + weekly["week"].astype(str)
+
+        weekly_sum = weekly.groupby("year_week")["amount"].sum().reset_index()
+
+        # 🟡 Thin strip visual line
+        strip = (
+            alt.Chart(weekly_sum)
+            .mark_line(color="#00E5FF", strokeWidth=2.4)
+            .encode(x="year_week:N", y="amount:Q")
+        )
+
+        # Node markers
+        nodes = (
+            alt.Chart(weekly_sum)
+            .mark_circle(size=50, color="#00FFFF")
+            .encode(x="year_week:N", y="amount:Q")
+        )
+
+        # Inline VALUES on top of dots (User Requested ✔)
+        labels = (
+            alt.Chart(weekly_sum)
+            .mark_text(
+                dy=-12,
+                fontSize=10,
+                fontWeight="bold",
+                color="white"
+            )
+            .encode(x="year_week:N", y="amount:Q", text="amount:Q")
+        )
+
+        st.altair_chart(strip + nodes + labels, use_container_width=True)
+
+        # Insights Summary 🔍
+        st.write("---")
+        st.success(f"📈 Peak Week Spend → **₹{weekly_sum.amount.max():,.0f}**")
+        st.info   (f"📊 Average Weekly Spend → **₹{weekly_sum.amount.mean():,.0f}**")
+        st.error  (f"📉 Min Week Spend → **₹{weekly_sum.amount.min():,.0f}**")
+
+        # =========================================================
+    # 🔥 13️⃣ Heatmap Calendar — Daily Spend Intensity
+    # =========================================================
+    with st.expander("📅 Heatmap Calendar – Daily Spend Intensity"):
+
+        cal = source.copy()
+        cal["date"] = pd.to_datetime(cal["period"]).dt.date
+        cal["amount"] = cal["amount"].astype(float)
+
+        # Create daily summary frame (even missing days filled visually)
+        cal_day = cal.groupby("date")["amount"].sum().reset_index()
+
+        cal_day["year"]  = pd.to_datetime(cal_day["date"]).dt.year
+        cal_day["month"] = pd.to_datetime(cal_day["date"]).dt.strftime("%b")
+        cal_day["day"]   = pd.to_datetime(cal_day["date"]).dt.day
+
+        # 🔥 Heatmap Blocks
+        heat = (
+            alt.Chart(cal_day)
+            .mark_rect()
+            .encode(
+                x=alt.X("day:O", title="Day of Month"),
+                y=alt.Y("month:O", title="Month"),
+                color=alt.Color("amount:Q",
+                                scale=alt.Scale(scheme="yellowgreenblue", domainMid=cal_day["amount"].mean()),
+                                legend=alt.Legend(title="Daily Spend ₹")),
+                tooltip=["date","amount"]
+            )
+            .properties(height=300)
+        )
+
+        # Value overlay text on each tile 🧊
+        text = (
+            alt.Chart(cal_day)
+            .mark_text(fontSize=10, fontWeight="600", color="white")
+            .encode(
+                x="day:O",
+                y="month:O",
+                text="amount:Q"
+            )
+        )
+
+        st.altair_chart(heat + text, use_container_width=True)
+
+        st.write("---")
+        st.info(f"📅 Most Expensive Day Ever → **₹{cal_day.amount.max():,.0f}**")
+        st.success(f"📊 Avg Daily Spend → **₹{cal_day.amount.mean():,.0f}**")
+        st.error(f"📉 Lowest Spend Recorded → **₹{cal_day.amount.min():,.0f}**")
+
+
 
 
 
