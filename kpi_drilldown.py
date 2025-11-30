@@ -307,9 +307,10 @@ def render_kpi_suite(filtered, get_income):
         st.info   (f"📊 Average Weekly Spend → **₹{weekly_sum.amount.mean():,.0f}**")
         st.error  (f"📉 Min Week Spend → **₹{weekly_sum.amount.min():,.0f}**")
 
+
     # =========================================================
-    # 🔥 13️⃣ Heatmap Calendar — Daily Spend Intensity FIXED
-    # =========================================================
+# 🔥 13️⃣ Heatmap Calendar — Daily Spend Intensity (FIXED FINAL)
+# =========================================================
     with st.expander("📅 Heatmap Calendar – Daily Spend Intensity"):
 
         cal = source.copy()
@@ -322,6 +323,7 @@ def render_kpi_suite(filtered, get_income):
         cal_day["month"] = pd.to_datetime(cal_day["date"]).dt.strftime("%b")
         cal_day["day"]   = pd.to_datetime(cal_day["date"]).dt.day
 
+        # 🔷 Heatmap blocks
         heat = (
             alt.Chart(cal_day)
             .mark_rect()
@@ -330,7 +332,7 @@ def render_kpi_suite(filtered, get_income):
                 y=alt.Y("month:O", title="Month"),
                 color=alt.Color(
                     "amount:Q",
-                    scale=alt.Scale(scheme="yellowgreenblue", domainMid=cal_day["amount"].mean()),
+                    scale=alt.Scale(scheme="yellowgreenblue"),
                     legend=alt.Legend(title="Daily Spend (₹)")
                 ),
                 tooltip=["date","amount"]
@@ -338,23 +340,31 @@ def render_kpi_suite(filtered, get_income):
             .properties(height=320)
         )
 
-        # 🔥 FIXED label block — NO ERRORS
-        text = (
+        # 🟡 FINAL FIX — value labels shown without schema error
+        labels = (
             alt.Chart(cal_day)
-            .mark_text()
+            .mark_text(
+                color="white",        # ✔ set styling HERE (not encode)
+                fontSize=11,
+                fontWeight="bold",
+                dy=-2                 # positions text inside cell cleanly
+            )
             .encode(
                 x="day:O",
                 y="month:O",
-                text="amount:Q",
-                color=alt.value("white"),
-                fontSize=alt.value(10),
-                fontWeight=alt.value("600")
+                text="amount:Q"
             )
         )
 
-        st.altair_chart(heat + text, use_container_width=True)
+        st.altair_chart(heat + labels, use_container_width=True)
+
+        st.write("---")
+        st.info(f"📌 Highest Spend Day → **₹{cal_day.amount.max():,.0f}**")
+        st.success(f"📊 Avg Daily Spend → **₹{cal_day.amount.mean():,.0f}**")
+        st.error(f"📉 Minimum Spend Day → **₹{cal_day.amount.min():,.0f}**")
 
 
+   
 
 
 
