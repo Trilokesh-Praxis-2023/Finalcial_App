@@ -9,6 +9,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 import pandas as pd
+import numpy as np
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 from prophet import Prophet
