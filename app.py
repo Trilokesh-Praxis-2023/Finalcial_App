@@ -125,21 +125,31 @@ if f_acc:   filtered = filtered[filtered.accounts.isin(f_acc)]
 
 
 
-
 # ============================================================
 # ➕ ADD EXPENSE ENTRY — FORM UI
 # ============================================================
 st.markdown("<h3>➕ Add Expense Entry</h3>", unsafe_allow_html=True)
 with st.expander("Add Expense Form"):
 
+    # 🔄 REFRESH BUTTON
+    if st.button("🔄 Refresh data", key="refresh_after_insert"):
+        # Clear cached DB loader and rerun app
+        try:
+            load_data.clear()      # if load_data is @st.cache_data
+        except Exception:
+            pass
+        st.rerun()                 # or st.experimental_rerun() on older Streamlit
+
     with st.form("expense_form", clear_on_submit=True):
         colA, colB = st.columns(2)
 
         with colA:
             d   = st.date_input("📅 Date")
-            cat = st.selectbox("📂 Category", 
+            cat = st.selectbox(
+                "📂 Category", 
                 ["Rent","Recharge","Transport","Food","Other","Household","Health",
-                 "Apparel","Social Life","Beauty","Gift","Education"])
+                 "Apparel","Social Life","Beauty","Gift","Education"]
+            )
 
         with colB:
             acc = st.text_input("🏦 Account / UPI / Card")
@@ -151,22 +161,33 @@ with st.expander("Add Expense Form"):
         try:
             monthly_total = df.amount.sum()
             new_total     = monthly_total + amt
-            percent       = (amt/new_total)*100
+            percent       = (amt / new_total) * 100 if new_total != 0 else 0
 
-            add_row = pd.DataFrame([{ 
-                "period": pd.to_datetime(d), "accounts": acc, "category": cat,
-                "amount": amt, "month": str(d)[:7], "percent_row": percent,
-                "running_total": new_total 
+            add_row = pd.DataFrame([{
+                "period": pd.to_datetime(d),
+                "accounts": acc,
+                "category": cat,
+                "amount": amt,
+                "month": str(d)[:7],
+                "percent_row": percent,
+                "running_total": new_total
             }])
 
             add_row.to_sql("finance_data", engine, index=False, if_exists="append")
-            load_data.clear()
+
+            # Clear cache so next run fetches fresh data
+            try:
+                load_data.clear()
+            except Exception:
+                pass
+
             st.success(f"Added ₹{amt} to {cat}")
             st.balloons()
 
         except Exception as e:
             st.error("❌ Database insert failed")
             st.code(e)
+
 
 
 # ============================================================
