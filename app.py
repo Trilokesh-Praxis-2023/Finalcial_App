@@ -193,7 +193,6 @@ with st.expander("Add Expense Form"):
 # ============================================================
 # 📊 KPI MODULE DASHBOARDS
 # ============================================================
-st.markdown("<h3>📈 KPI Snapshot</h3>", unsafe_allow_html=True)
 render_kpis(filtered=filtered, df=df, MONTHLY_BUDGET=18000)
 
 
