@@ -110,7 +110,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     current_month_spend = f[f["year_month"] == month_now]["amount"].sum()
 
     # use passed MONTHLY_BUDGET; keep a fallback for FIXED_RENT or make it a parameter if you want
-    FIXED_RENT = 13000
+    FIXED_RENT = 13000 - 588 - 470
 
     days_total = pd.Period(now_ts, freq="M").days_in_month
     days_left = max(days_total - now_ts.day, 1)
