@@ -41,150 +41,155 @@ def sparkline(data, color="#ffbf00"):
 # =======================================================================
 
 def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float):
+    import streamlit as st
+    import pandas as pd
+    from datetime import date
 
+    # --- safety checks
     if filtered is None or filtered.empty:
         st.warning("⚠ No data available for KPI dashboard.")
         return
 
+    # work on a copy
     f = filtered.copy()
-    f["period"] = pd.to_datetime(f["period"], errors="coerce")
 
-    # ========== CORE NUMBERS ==========
+    # ensure period is datetime
+    f["period"] = pd.to_datetime(f.get("period", f.get("date", None)), errors="coerce")
+
+    # ensure year_month column exists (yyyy-mm)
+    if "year_month" not in f.columns:
+        f["year_month"] = f["period"].dt.to_period("M").astype(str)
+
+    # ensure amount numeric
+    f["amount"] = pd.to_numeric(f["amount"], errors="coerce").fillna(0.0)
+
+    # ---------- CORE NUMBERS ----------
     today = pd.to_datetime("today").date()
     today_spend = f[f["period"].dt.date == today]["amount"].sum()
 
     total_spend = f["amount"].sum()
-    lifetime_spend = df["amount"].sum() if not df.empty else total_spend
+    lifetime_spend = df["amount"].sum() if (df is not None and not df.empty and "amount" in df.columns) else total_spend
 
-    current_month_key = f["year_month"].unique().max()
+    # current month key (safely)
+    month_keys = f["year_month"].dropna().unique()
+    current_month_key = month_keys.max() if len(month_keys) > 0 else pd.to_datetime(today).strftime("%Y-%m")
     current_month = f[f["year_month"] == current_month_key]
     current_month_total = current_month["amount"].sum()
 
-    avg_monthly = f.groupby("year_month")["amount"].sum().mean()
-    month_fmt = lambda m: pd.to_datetime(m).strftime("%b %Y") if pd.notna(m) else "-"
+    avg_monthly = f.groupby("year_month")["amount"].sum().mean() if len(f["year_month"].unique()) > 0 else 0.0
+    month_fmt = lambda m: pd.to_datetime(m).strftime("%b %Y") if pd.notna(m) and m != "" else "-"
 
-    # ========== WEEK STATS ==========
-    f["week"] = f["period"].dt.isocalendar().week
+    # ---------- WEEK STATS ----------
+    # create a safe year_week label
     f["year_week"] = f["period"].dt.strftime("%Y-W%U")
-    weekly_spend = f.groupby("year_week")["amount"].sum()
+    weekly_spend = f.groupby("year_week")["amount"].sum().sort_index()
 
-    current_week = weekly_spend.iloc[-1] if len(weekly_spend) > 0 else 0
-    prev_week = weekly_spend.iloc[-2] if len(weekly_spend) > 1 else 0
-    wow_change = ((current_week-prev_week)/prev_week*100) if prev_week > 0 else 0
+    current_week = weekly_spend.iloc[-1] if len(weekly_spend) > 0 else 0.0
+    prev_week = weekly_spend.iloc[-2] if len(weekly_spend) > 1 else 0.0
+    wow_change = ((current_week - prev_week) / prev_week * 100) if prev_week > 0 else 0.0
 
-
-    # ===================================================================
-    # 🔹 ROW 1 — CORE Spend Summary
-    # ===================================================================
+    # ========== ROW 1 — CORE KPIs ==========
     st.subheader("📊 Financial KPI Overview")
-    c1,c2,c3,c4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
 
-    with c1: st.metric("💸 Total Spend", f"₹{total_spend:,.0f}")
-    with c2: st.metric("📆 Current Month", f"₹{current_month_total:,.0f}")
-    with c3: st.metric("📅 Today", f"₹{today_spend:,.0f}")
-    with c4: st.metric("📅 Avg Monthly", f"₹{avg_monthly:,.0f}")
+    with c1:
+        st.metric("💸 Total Spend", f"₹{total_spend:,.0f}")
+    with c2:
+        st.metric("📆 Current Month", f"₹{current_month_total:,.0f}")
+    with c3:
+        st.metric("📅 Today", f"₹{today_spend:,.0f}")
+    with c4:
+        st.metric("📅 Avg Monthly", f"₹{avg_monthly:,.0f}")
 
-
-    # ===================================================================
-    # 🔹 ROW 2 — (Moved from bottom) BUDGET SURVIVAL TRACKER
-    # ===================================================================
+    # ========== ROW 2 — BUDGET SURVIVAL TRACKER (moved here) ==========
     st.markdown("### 💼 Monthly Budget Survival Tracker")
 
-    today = pd.Timestamp.today()
-    month_now = today.strftime("%Y-%m")
+    now_ts = pd.Timestamp.now()
+    month_now = now_ts.strftime("%Y-%m")
 
-    current_month_spend = filtered[filtered.year_month == month_now]["amount"].sum()
+    current_month_spend = f[f["year_month"] == month_now]["amount"].sum()
 
-    MONTHLY_BUDGET = 18000
-    FIXED_RENT     = 13000
+    # use passed MONTHLY_BUDGET; keep a fallback for FIXED_RENT or make it a parameter if you want
+    FIXED_RENT = 13000
 
-    days_total = pd.Period(today, freq="M").days_in_month
-    days_left = max(days_total - today.day, 1)
+    days_total = pd.Period(now_ts, freq="M").days_in_month
+    days_left = max(days_total - now_ts.day, 1)
 
-    daily_budget = (MONTHLY_BUDGET - FIXED_RENT) / days_total
-
-    spent_today = filtered[filtered.period.dt.date == today.date()]["amount"].sum()
-    save_today  = daily_budget - spent_today
+    daily_budget = (MONTHLY_BUDGET - FIXED_RENT) / days_total if days_total > 0 else 0.0
+    spent_today = f[f["period"].dt.date == today]["amount"].sum()
+    save_today = daily_budget - spent_today
     budget_left = MONTHLY_BUDGET - current_month_spend
 
-    c1,c2,c3,c4,c5 = st.columns(5)
-    c1.metric("💰 Budget Left", f"₹{budget_left:,.0f}")
-    c2.metric("📅 Days Left", f"{days_left}")
-    c3.metric("⚡ Daily Budget", f"₹{daily_budget:,.0f}")
-    c4.metric("🛒 Spent Today", f"₹{spent_today:,.0f}")
-    c5.metric("💾 Save Today", f"₹{save_today:,.0f}")
+    b1, b2, b3, b4, b5 = st.columns(5)
+    b1.metric("💰 Budget Left", f"₹{budget_left:,.0f}")
+    b2.metric("📅 Days Left", f"{days_left}")
+    b3.metric("⚡ Daily Budget", f"₹{daily_budget:,.0f}")
+    b4.metric("🛒 Spent Today", f"₹{spent_today:,.0f}")
+    b5.metric("💾 Save Today", f"₹{save_today:,.0f}")
 
-
-    # ===================================================================
-    # 🔹 ROW 3 — CATEGORY STRENGTH
-    # ===================================================================
+    # ========== ROW 3 — CATEGORY STRENGTH ==========
     st.markdown("### 🏷 Category Insight & Daily Behavior")
-    r1,r2,r3,r4 = st.columns(4)
+    r1, r2, r3, r4 = st.columns(4)
 
-    month_totals = f.groupby("year_month")["amount"].sum()
-    prev_month = month_totals.iloc[-2] if len(month_totals)>1 else 0
-    mom = ((current_month_total-prev_month)/prev_month*100) if prev_month>0 else 0
+    month_totals = f.groupby("year_month")["amount"].sum().sort_index()
+    prev_month_total = month_totals.iloc[-2] if len(month_totals) > 1 else 0.0
+    mom = ((current_month_total - prev_month_total) / prev_month_total * 100) if prev_month_total > 0 else 0.0
 
-    cat_sum = f.groupby("category")["amount"].sum()
-    daily = f.groupby("period")["amount"].sum()
+    cat_sum = f.groupby("category")["amount"].sum().sort_values(ascending=False)
+    daily = f.groupby("period")["amount"].sum().sort_index()
 
-    r1.metric("📆 MoM Growth",f"{mom:.1f}%")
-    r2.metric("🏆 Highest Spend", cat_sum.idxmax() if len(cat_sum)>0 else "-")
-    r3.metric("🪫 Lowest Spend", cat_sum.idxmin() if len(cat_sum)>0 else "-")
-    r4.metric("📅 Avg/Day", f"₹{daily.mean():,.0f}" if len(daily) else "0")
+    r1.metric("📆 MoM Growth", f"{mom:.1f}%")
+    r2.metric("🏆 Highest Spend", cat_sum.idxmax() if len(cat_sum) > 0 else "-")
+    r3.metric("🪫 Lowest Spend", cat_sum.idxmin() if len(cat_sum) > 0 else "-")
+    r4.metric("📅 Avg/Day", f"₹{daily.mean():,.0f}" if len(daily) > 0 else "₹0")
 
+    # ========== ROW 4 — INCOME vs EXPENSE ==========
+    st.markdown("### 💰 Income vs Expense Tracker")
+    i1, i2, i3, i4 = st.columns(4)
 
-    # ===================================================================
-    # 🔹 ROW 4 — Income vs Expense
-    # ===================================================================
-    st.markdown("### 💰 Income vs Expense Balance")
-    i1,i2,i3,i4 = st.columns(4)
+    # get_income may not be defined in this scope; guard it
+    try:
+        expected = get_income(current_month_key)
+    except Exception:
+        expected = 0.0
 
-    expected = get_income(current_month_key)
-    balance = expected-current_month_total
-    save_rate = (balance/expected*100) if expected>0 else 0
-    pct = current_month_total/expected*100 if expected>0 else 0
+    balance = expected - current_month_total
+    save_rate = (balance / expected * 100) if expected > 0 else 0.0
+    pct = (current_month_total / expected * 100) if expected > 0 else 0.0
 
-    status = "🟢 Safe" if pct<70 else "🟡 High" if pct<100 else "🔴 Critical"
+    status = "🟢 Safe" if pct < 70 else "🟡 High" if pct < 100 else "🔴 Critical"
 
-    i1.metric("💰 Expected Income", f"₹{expected:,.0f}")
+    i1.metric("💰 Income Expected", f"₹{expected:,.0f}")
     i2.metric("📊 Balance Left", f"₹{balance:,.0f}")
     i3.metric("💾 Savings Rate", f"{save_rate:.1f}%")
-    i4.metric("⚡ % Spent",f"{pct:.1f}%",status)
+    i4.metric("⚡ % Spent", f"{pct:.1f}%", status)
 
+    # ========== ROW 5 — MOMENTUM & SPEND DIRECTION (moved here) ==========
+    st.markdown("### 📈 Momentum & Spend Direction")
+    t1, t2, t3, t4 = st.columns(4)
 
-    # ===================================================================
-    # 🔹 ROW 5 — (Moved from top) MOMENTUM + TRENDS
-    # ===================================================================
-    st.markdown("### 📈 Momentum & Weekly Direction")
-    t1,t2,t3,t4 = st.columns(4)
-
-    lifetime_used_pct = (total_spend/lifetime_spend*100) if lifetime_spend>0 else 0
-    month_totals = f.groupby("year_month")["amount"].sum()
+    lifetime_used_pct = (total_spend / lifetime_spend * 100) if lifetime_spend > 0 else 0.0
+    month_totals_for_peak = f.groupby("year_month")["amount"].sum()
 
     t1.metric("📊 Lifetime Spend %", f"{lifetime_used_pct:.1f}%")
 
-    if len(month_totals)>0:
-        best = month_totals.idxmax()
-        t2.metric("🔥 Peak Month", month_fmt(best), f"₹{month_totals.max():,.0f}")
+    if len(month_totals_for_peak) > 0:
+        best = month_totals_for_peak.idxmax()
+        t2.metric("🔥 Peak Month", month_fmt(best), f"₹{month_totals_for_peak.max():,.0f}")
     else:
-        t2.metric("🔥 Peak Month","-")
+        t2.metric("🔥 Peak Month", "-")
 
     t3.metric("📅 Weekly Spend", f"₹{current_week:,.0f}")
     t4.metric("🔄 WoW Change", f"{wow_change:.1f}%")
 
-
-    # ===================================================================
-    # 🔹 SPEND SHARE BREAKDOWN
-    # ===================================================================
+    # ========== SPEND SHARE ==========
     st.subheader("📊 Spend Share Breakdown")
-
-    share = cat_sum.reset_index().rename(columns={"amount":"Total Spend"})
-    share["Share %"] = (share["Total Spend"]/total_spend*100).round(2)
+    share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
+    share["Share %"] = (share["Total Spend"] / total_spend * 100).round(2) if total_spend > 0 else 0.0
     st.dataframe(share, use_container_width=True)
 
     st.markdown("---")
-    st.success("KPI Dashboard Updated & Reordered 🔄✨")
+    st.success("KPI Dashboard Loaded ✅")
 
 
 # =======================================================================
