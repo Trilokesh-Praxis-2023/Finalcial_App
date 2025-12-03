@@ -307,14 +307,84 @@ def forecasting_ui(filtered):
         else:
             st.success("📅 Monthly Model Loaded ✔")
 
+# ============================================================
+# 📅 CURRENT MONTH FORECAST (Daily Model)
+# ============================================================
+def predict_current_month_forecast(filtered):
+
+    if not os.path.exists(DAILY_MODEL_PATH):
+        st.error("⚠ Daily Model Missing — Train First.")
+        return
+
+    model = joblib.load(DAILY_MODEL_PATH)
+
+    df = filtered.copy()
+    df["period"] = pd.to_datetime(df["period"])
+    daily = df.groupby("period")["amount"].sum().reset_index()
+
+    today = pd.Timestamp.today().normalize()
+    end_of_month = today + pd.offsets.MonthEnd(0)
+    days_remaining = (end_of_month - today).days + 1
+
+    if days_remaining <= 0:
+        st.warning("✔ Month already ended.")
+        return
+
+    # Generate future dates (remaining in month)
+    future_dates = pd.date_range(today, end_of_month)
+
+    future = pd.DataFrame({"period": future_dates})
+    future["day"]   = future["period"].dt.day
+    future["dow"]   = future["period"].dt.dayofweek
+    future["month"] = future["period"].dt.month
+    future["t"]     = range(len(daily), len(daily) + len(future_dates))
+
+    future["Forecast"] = model.predict(future[["day","dow","month","t"]]).clip(0)
+
+    # Calculate totals
+    amount_spent = df[df["period"].dt.to_period("M") == today.to_period("M")]["amount"].sum()
+    month_forecast_total = amount_spent + future["Forecast"].sum()
+
+    # Show results
+    st.subheader("📅 Current Month Forecast Summary")
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("💸 Spent So Far", f"₹{amount_spent:,.0f}")
+    c2.metric("🔮 Remaining Forecast", f"₹{future['Forecast'].sum():,.0f}")
+    c3.metric("📊 Total Predicted This Month", f"₹{month_forecast_total:,.0f}")
+
+    # Chart
+    hist_month = daily[
+        daily["period"].dt.to_period("M") == today.to_period("M")
+    ].rename(columns={"period":"Date","amount":"Actual"})
+
+    future_chart = future.rename(columns={"period":"Date"})
+
+    chart = (
+        alt.Chart(hist_month).mark_line(point=True, color="#4CAF50")
+        .encode(x="Date:T", y="Actual:Q")
+        +
+        alt.Chart(future_chart).mark_line(point=True, color="#F57F17", strokeDash=[4,3])
+        .encode(x="Date:T", y="Forecast:Q")
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+    st.dataframe(future_chart)
+
+
     # ============================================================
     # 📊 AUTO FORECAST SECTION
     # ============================================================
     st.markdown("<h3 style='color:#0984e3;'>📆 Daily Forecast (Next 30 Days)</h3>", unsafe_allow_html=True)
     predict_daily_ml(filtered)
 
+    st.markdown("<h3 style='color:#6c5ce7;'>📅 Current Month Forecast</h3>", unsafe_allow_html=True)
+    predict_current_month_forecast(filtered)
+
     st.markdown("<h3 style='color:#00b894;'>📅 Monthly Forecast (Next 6 Months)</h3>", unsafe_allow_html=True)
     predict_monthly_ml(filtered)
+
+
 
     st.markdown("---")
 
@@ -356,3 +426,4 @@ def forecasting_ui(filtered):
 
     with st.expander("📊 Monthly Model Performance", expanded=False):
         evaluate_monthly_model(filtered)
+        
