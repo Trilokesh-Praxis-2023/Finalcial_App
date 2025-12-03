@@ -378,13 +378,9 @@ def predict_current_month_forecast(filtered):
     st.markdown("<h3 style='color:#0984e3;'>📆 Daily Forecast (Next 30 Days)</h3>", unsafe_allow_html=True)
     predict_daily_ml(filtered)
 
-    st.markdown("<h3 style='color:#6c5ce7;'>📅 Current Month Forecast</h3>", unsafe_allow_html=True)
-    predict_current_month_forecast(filtered)
-
     st.markdown("<h3 style='color:#00b894;'>📅 Monthly Forecast (Next 6 Months)</h3>", unsafe_allow_html=True)
     predict_monthly_ml(filtered)
-
-
+    
 
     st.markdown("---")
 
