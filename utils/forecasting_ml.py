@@ -281,50 +281,78 @@ def evaluate_monthly_model(filtered):
     st.dataframe(monthly[["year_month","amount","Predicted","Error"]])
 
 
-
 # ============================================================
-# 🔘 UI: AUTO FORECAST + MANUAL BUTTONS + PERFORMANCE
+# 🔘 UI: BEAUTIFUL AUTO FORECAST + MANUAL CONTROLS + PERFORMANCE
 # ============================================================
 def forecasting_ui(filtered):
 
-    st.subheader("🔮 Machine Learning Based Forecasting")
+    st.markdown("""
+        <h2 style='color:#6C5CE7;'>🔮 Machine Learning Forecast Dashboard</h2>
+        <p style='color:gray;'>Automated prediction system with XGBoost — daily + monthly forecasts.</p>
+    """, unsafe_allow_html=True)
 
-    # AUTO-TRAIN IF MISSING
-    if not os.path.exists(DAILY_MODEL_PATH):
-        st.info("📌 Daily model missing → training automatically...")
-        train_daily_model(filtered)
+    # ============================================================
+    # 🔄 AUTO-TRAIN IF MODEL NOT FOUND
+    # ============================================================
+    with st.expander("⚙️ Model Status & Auto-Training", expanded=False):
+        if not os.path.exists(DAILY_MODEL_PATH):
+            st.info("📌 Daily model missing → training automatically...")
+            train_daily_model(filtered)
+        else:
+            st.success("📆 Daily Model Loaded ✔")
 
-    if not os.path.exists(MONTHLY_MODEL_PATH):
-        st.info("📌 Monthly model missing → training automatically...")
-        train_monthly_model(filtered)
+        if not os.path.exists(MONTHLY_MODEL_PATH):
+            st.info("📌 Monthly model missing → training automatically...")
+            train_monthly_model(filtered)
+        else:
+            st.success("📅 Monthly Model Loaded ✔")
 
-    # AUTO-PREDICT
-    st.markdown("## 📆 Auto Daily Forecast (Next 30 Days)")
+    # ============================================================
+    # 📊 AUTO FORECAST SECTION
+    # ============================================================
+    st.markdown("<h3 style='color:#0984e3;'>📆 Daily Forecast (Next 30 Days)</h3>", unsafe_allow_html=True)
     predict_daily_ml(filtered)
 
-    st.markdown("## 📅 Auto Monthly Forecast (Next 6 Months)")
+    st.markdown("<h3 style='color:#00b894;'>📅 Monthly Forecast (Next 6 Months)</h3>", unsafe_allow_html=True)
     predict_monthly_ml(filtered)
 
     st.markdown("---")
-    st.markdown("### ⚙️ Manual Model Control")
 
-    if st.button("🛠 Retrain Daily Model"):
-        train_daily_model(filtered)
+    # ============================================================
+    # 🔧 MANUAL CONTROLS
+    # ============================================================
+    st.markdown("""
+        <h3 style='color:#e17055;'>⚙️ Manual Model Controls</h3>
+        <p style='color:gray;'>Use these buttons if you want to manually retrain or re-run predictions.</p>
+    """, unsafe_allow_html=True)
 
-    if st.button("📅 Re-run Daily Forecast"):
-        predict_daily_ml(filtered)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🛠 Retrain Daily Model"):
+            train_daily_model(filtered)
 
-    if st.button("🛠 Retrain Monthly Model"):
-        train_monthly_model(filtered)
+        if st.button("📅 Re-run Daily Forecast"):
+            predict_daily_ml(filtered)
 
-    if st.button("🤖 Re-run Monthly Forecast"):
-        predict_monthly_ml(filtered)
+    with col2:
+        if st.button("🛠 Retrain Monthly Model"):
+            train_monthly_model(filtered)
+
+        if st.button("🤖 Re-run Monthly Forecast"):
+            predict_monthly_ml(filtered)
 
     st.markdown("---")
-    st.markdown("### 📈 Model Performance Evaluation")
 
-    if st.button("📏 Evaluate Daily Model Performance"):
+    # ============================================================
+    # 📈 PERFORMANCE EVALUATION
+    # ============================================================
+    st.markdown("""
+        <h3 style='color:#6c5ce7;'>📈 Forecast Accuracy & Model Performance</h3>
+        <p style='color:gray;'>View how well the model performed against past actual values.</p>
+    """, unsafe_allow_html=True)
+
+    with st.expander("📏 Daily Model Performance", expanded=False):
         evaluate_daily_model(filtered)
 
-    if st.button("📊 Evaluate Monthly Model Performance"):
+    with st.expander("📊 Monthly Model Performance", expanded=False):
         evaluate_monthly_model(filtered)
