@@ -1,6 +1,7 @@
 # ============================================================
 # 📁 forecasting_ml.py
 # Full ML-Based Forecasting System (Daily + Monthly Models)
+# Auto-train + Auto-predict on load
 # ============================================================
 
 import os, joblib
@@ -14,17 +15,16 @@ from sklearn.metrics import mean_absolute_error
 
 
 # GLOBAL CONFIG
-FIXED_RENT = 11600  
-MONTHLY_MODEL_PATH = "models/monthly_forecast_model.pkl"
-DAILY_MODEL_PATH   = "models/daily_forecast_model.pkl"
-
+FIXED_RENT = 11600  + 588 + 470
+MODEL_DIR = "models"
+MONTHLY_MODEL_PATH = f"{MODEL_DIR}/monthly_forecast_model.pkl"
+DAILY_MODEL_PATH   = f"{MODEL_DIR}/daily_forecast_model.pkl"
 
 
 # ============================================================
 # 📆 DAILY XGBoost FORECAST — Train + Save Model
 # ============================================================
 def train_daily_model(filtered):
-
     df = filtered.copy()
     df["period"] = pd.to_datetime(df["period"])
     daily = df.groupby("period")["amount"].sum().reset_index()
@@ -39,7 +39,7 @@ def train_daily_model(filtered):
     daily["month"] = daily["period"].dt.month
     daily["t"]     = range(len(daily))
 
-    X = daily[["day","dow","month","t"]]
+    X = daily[["day", "dow", "month", "t"]]
     y = daily["amount"].clip(lower=0)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, shuffle=False)
@@ -53,7 +53,7 @@ def train_daily_model(filtered):
     model.fit(X_train, y_train)
     mae = mean_absolute_error(y_test, model.predict(X_test))
 
-    os.makedirs("models", exist_ok=True)
+    os.makedirs(MODEL_DIR, exist_ok=True)
     joblib.dump(model, DAILY_MODEL_PATH)
 
     st.success(f"📆 Daily Model Trained — MAE: ₹{mae:,.0f} (Saved)")
@@ -79,22 +79,23 @@ def predict_daily_ml(filtered, future_days=30):
     future["day"]   = future["period"].dt.day
     future["dow"]   = future["period"].dt.dayofweek
     future["month"] = future["period"].dt.month
-    future["t"]     = range(len(daily), len(daily)+future_days)
+    future["t"]     = range(len(daily), len(daily) + future_days)
 
-    future["Forecast"] = model.predict(future[["day","dow","month","t"]]).clip(0)
+    future["Forecast"] = model.predict(future[["day", "dow", "month", "t"]]).clip(0)
 
     # VISUAL
-    hist = daily.rename(columns={"period":"Date","amount":"Actual"})
-    future = future.rename(columns={"period":"Date"})
+    hist = daily.rename(columns={"period": "Date", "amount": "Actual"})
+    future = future.rename(columns={"period": "Date"})
 
     chart = (
         alt.Chart(hist).mark_line(point=True, color="#4FC3F7").encode(
             x="Date:T", y="Actual:Q"
         ) +
-        alt.Chart(future).mark_line(point=True, color="#FFC107", strokeDash=[4,3]).encode(
+        alt.Chart(future).mark_line(point=True, color="#FFC107", strokeDash=[4, 3]).encode(
             x="Date:T", y="Forecast:Q"
         )
     )
+
     st.altair_chart(chart, use_container_width=True)
     st.dataframe(future)
 
@@ -118,7 +119,7 @@ def train_monthly_model(filtered):
     monthly["t"]     = range(len(monthly))
     monthly["variable"] = (monthly["amount"] - FIXED_RENT).clip(lower=0)
 
-    X = monthly[["month","year","t"]]
+    X = monthly[["month", "year", "t"]]
     y = monthly["variable"]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, shuffle=False)
@@ -132,8 +133,9 @@ def train_monthly_model(filtered):
     model.fit(X_train, y_train)
     mae = mean_absolute_error(y_test, model.predict(X_test))
 
-    os.makedirs("models", exist_ok=True)
+    os.makedirs(MODEL_DIR, exist_ok=True)
     joblib.dump(model, MONTHLY_MODEL_PATH)
+
     st.success(f"📊 Monthly Model Trained — MAE: ₹{mae:,.0f} (Saved)")
 
 
@@ -161,50 +163,66 @@ def predict_monthly_ml(filtered, months=6):
             periods=months, freq="MS"
         )
     })
+
     future["month"] = future["year_month"].dt.month
     future["year"]  = future["year_month"].dt.year
-    future["t"]     = range(len(monthly), len(monthly)+months)
+    future["t"]     = range(len(monthly), len(monthly) + months)
 
-    future["variable_pred"] = model.predict(future[["month","year","t"]]).clip(0)
+    future["variable_pred"] = model.predict(future[["month", "year", "t"]]).clip(0)
     future["Forecast"] = future["variable_pred"] + FIXED_RENT
 
-    hist = monthly.rename(columns={"year_month":"Month","amount":"Actual"})
-    future = future.rename(columns={"year_month":"Month"})
+    hist = monthly.rename(columns={"year_month": "Month", "amount": "Actual"})
+    future = future.rename(columns={"year_month": "Month"})
 
     chart = (
         alt.Chart(hist).mark_line(point=True, color="#FFC300").encode(
             x="Month:T", y="Actual:Q"
         ) +
-        alt.Chart(future).mark_line(point=True, color="#00E676", strokeDash=[4,3]).encode(
+        alt.Chart(future).mark_line(point=True, color="#00E676", strokeDash=[4, 3]).encode(
             x="Month:T", y="Forecast:Q"
         )
     )
+
     st.altair_chart(chart, use_container_width=True)
     st.dataframe(future)
 
 
 
 # ============================================================
-# 🔘 UI BUTTON SECTION (One Below Another — Clean)
+# 🔘 UI SECTION — Auto Forecast + Buttons
 # ============================================================
 def forecasting_ui(filtered):
 
     st.subheader("🔮 Machine Learning Based Forecasting")
 
-    # DAILY
-    st.markdown("### 📆 Daily Prediction (Next 30 Days)")
-    if st.button("🛠 Train Daily Forecast Model"):
+    # AUTO-TRAIN IF MODEL MISSING
+    if not os.path.exists(DAILY_MODEL_PATH):
+        st.info("📌 Daily model not found — training automatically...")
         train_daily_model(filtered)
 
-    if st.button("📅 Predict Next 30 Days"):
-        predict_daily_ml(filtered)
-
-
-
-    # MONTHLY
-    st.markdown("### 📅 Monthly Prediction (Next 6 Months)")
-    if st.button("🛠 Train Monthly Forecast Model"):
+    if not os.path.exists(MONTHLY_MODEL_PATH):
+        st.info("📌 Monthly model not found — training automatically...")
         train_monthly_model(filtered)
 
-    if st.button("🤖 Predict Next 6 Months"):
+    # AUTO FORECAST ON PAGE LOAD
+    st.markdown("## 📆 Auto Daily Forecast (Next 30 Days)")
+    predict_daily_ml(filtered)
+
+    st.markdown("## 📅 Auto Monthly Forecast (Next 6 Months)")
+    predict_monthly_ml(filtered)
+
+    # Manual Options
+    st.markdown("---")
+    st.markdown("### ⚙️ Manual Re-train or Re-run")
+
+    if st.button("🛠 Retrain Daily Model"):
+        train_daily_model(filtered)
+
+    if st.button("📅 Re-run Daily Forecast"):
+        predict_daily_ml(filtered)
+
+    if st.button("🛠 Retrain Monthly Model"):
+        train_monthly_model(filtered)
+
+    if st.button("🤖 Re-run Monthly Forecast"):
         predict_monthly_ml(filtered)
