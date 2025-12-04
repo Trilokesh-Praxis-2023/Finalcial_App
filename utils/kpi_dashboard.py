@@ -41,9 +41,6 @@ def sparkline(data, color="#ffbf00"):
 # =======================================================================
 
 def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float):
-    import streamlit as st
-    import pandas as pd
-    from datetime import date
 
     # --- safety checks
     if filtered is None or filtered.empty:
@@ -120,12 +117,17 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     save_today = daily_budget - spent_today
     budget_left = MONTHLY_BUDGET - current_month_spend
 
-    b1, b2, b3, b4, b5 = st.columns(5)
+    # NEW: Budget allowed per remaining day
+    daily_allowed_left = budget_left / days_left if days_left > 0 else 0.0
+
+    b1, b2, b3, b4, b5, b6 = st.columns(6)
     b1.metric("💰 Budget Left", f"₹{budget_left:,.0f}")
     b2.metric("📅 Days Left", f"{days_left}")
     b3.metric("⚡ Daily Budget", f"₹{daily_budget:,.0f}")
     b4.metric("🛒 Spent Today", f"₹{spent_today:,.0f}")
     b5.metric("💾 Save Today", f"₹{save_today:,.0f}")
+    b6.metric("📊 Daily Allowed (Remaining)", f"₹{daily_allowed_left:,.0f}")
+
 
     # ========== ROW 3 — CATEGORY STRENGTH ==========
     st.markdown("### 🏷 Category Insight & Daily Behavior")
