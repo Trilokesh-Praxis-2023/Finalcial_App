@@ -40,6 +40,28 @@ def sparkline(data, color="#ffbf00"):
 #               🔥 MAIN RENDER FUNCTION (CALL IN APP.PY)
 # =======================================================================
 
+def calc_income(year_month: str) -> float:
+    """
+    Income logic based on month:
+        Oct 2024 → 12000
+        Nov 2024 → 14112
+        Dec 2024 onward → 24200
+    """
+    try:
+        ym = pd.to_datetime(year_month, format="%Y-%m")
+    except:
+        return 0.0
+
+    if ym == pd.Timestamp(2024, 10, 1):
+        return 12000
+    elif ym == pd.Timestamp(2024, 11, 1):
+        return 14112
+    elif ym >= pd.Timestamp(2024, 12, 1):
+        return 24200
+    return 0.0
+
+
+
 def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float):
 
     # --- safety checks
@@ -76,8 +98,12 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     avg_monthly = f.groupby("year_month")["amount"].sum().mean() if len(f["year_month"].unique()) > 0 else 0.0
     month_fmt = lambda m: pd.to_datetime(m).strftime("%b %Y") if pd.notna(m) and m != "" else "-"
 
+    # ---------- INCOME CALCULATION ----------
+    unique_months = sorted(f["year_month"].unique())
+    total_income = sum(calc_income(m) for m in unique_months)
+    current_month_income = calc_income(current_month_key)
+
     # ---------- WEEK STATS ----------
-    # create a safe year_week label
     f["year_week"] = f["period"].dt.strftime("%Y-W%U")
     weekly_spend = f.groupby("year_week")["amount"].sum().sort_index()
 
@@ -85,20 +111,27 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     prev_week = weekly_spend.iloc[-2] if len(weekly_spend) > 1 else 0.0
     wow_change = ((current_week - prev_week) / prev_week * 100) if prev_week > 0 else 0.0
 
-    # ========== ROW 1 — CORE KPIs ==========
+    # ========== ROW 1 — CORE KPIs (UPDATED WITH INCOME) ==========
     st.subheader("📊 Financial KPI Overview")
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
     with c1:
-        st.metric("💸 Total Spend", f"₹{total_spend:,.0f}")
-    with c2:
-        st.metric("📆 Current Month", f"₹{current_month_total:,.0f}")
-    with c3:
-        st.metric("📅 Today", f"₹{today_spend:,.0f}")
-    with c4:
-        st.metric("📅 Avg Monthly", f"₹{avg_monthly:,.0f}")
+        st.metric("💰 Total Income", f"₹{total_income:,.0f}")
 
-    # ========== ROW 2 — BUDGET SURVIVAL TRACKER (moved here) ==========
+    with c2:
+        st.metric("💸 Total Spend", f"₹{total_spend:,.0f}")
+
+    with c3:
+        st.metric("📆 Current Month Spend", f"₹{current_month_total:,.0f}")
+
+    with c4:
+        st.metric("💰 Current Month Income", f"₹{current_month_income:,.0f}")
+
+    with c5:
+        st.metric("📅 Today", f"₹{today_spend:,.0f}")
+
+
+    # ========== ROW 2 — BUDGET SURVIVAL TRACKER ==========
     st.markdown("### 💼 Monthly Budget Survival Tracker")
 
     now_ts = pd.Timestamp.now()
@@ -106,7 +139,6 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
 
     current_month_spend = f[f["year_month"] == month_now]["amount"].sum()
 
-    # use passed MONTHLY_BUDGET; keep a fallback for FIXED_RENT or make it a parameter if you want
     FIXED_RENT = 11000 + 400 + 588 + 470
 
     days_total = pd.Period(now_ts, freq="M").days_in_month
@@ -117,7 +149,6 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     save_today = daily_budget - spent_today
     budget_left = MONTHLY_BUDGET - current_month_spend
 
-    # NEW: Budget allowed per remaining day
     daily_allowed_left = budget_left / days_left if days_left > 0 else 0.0
 
     b1, b2, b3, b4, b5, b6 = st.columns(6)
@@ -145,16 +176,12 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     r3.metric("🪫 Lowest Spend", cat_sum.idxmin() if len(cat_sum) > 0 else "-")
     r4.metric("📅 Avg/Day", f"₹{daily.mean():,.0f}" if len(daily) > 0 else "₹0")
 
+
     # ========== ROW 4 — INCOME vs EXPENSE ==========
     st.markdown("### 💰 Income vs Expense Tracker")
     i1, i2, i3, i4 = st.columns(4)
 
-    # get_income may not be defined in this scope; guard it
-    try:
-        expected = get_income(current_month_key)
-    except Exception:
-        expected = 0.0
-
+    expected = current_month_income
     balance = expected - current_month_total
     save_rate = (balance / expected * 100) if expected > 0 else 0.0
     pct = (current_month_total / expected * 100) if expected > 0 else 0.0
@@ -166,7 +193,8 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     i3.metric("💾 Savings Rate", f"{save_rate:.1f}%")
     i4.metric("⚡ % Spent", f"{pct:.1f}%", status)
 
-    # ========== ROW 5 — MOMENTUM & SPEND DIRECTION (moved here) ==========
+
+    # ========== ROW 5 — MOMENTUM & SPEND DIRECTION ==========
     st.markdown("### 📈 Momentum & Spend Direction")
     t1, t2, t3, t4 = st.columns(4)
 
