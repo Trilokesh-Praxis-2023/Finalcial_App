@@ -34,6 +34,8 @@ def sparkline(data, color="#ffbf00"):
 #               🔥 MAIN RENDER FUNCTION (CALL IN APP.PY)
 # =======================================================================
 
+def get_income(month):
+    return calc_income(month)
 
 def fmt_k(n):
     """Format number into K/M style for metrics."""
