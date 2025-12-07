@@ -69,8 +69,6 @@ def calc_income(year_month: str) -> float:
         return 24200
     return 0.0
 
-
-
 def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float):
 
     if filtered is None or filtered.empty:
@@ -114,6 +112,9 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     budget_left = MONTHLY_BUDGET - current_month_spend
     daily_allowed_left = max(budget_left / days_left, 0)
 
+    # ---------- Spend Velocity ----------
+    spend_velocity = current_month_spend / now_ts.day if now_ts.day > 0 else 0
+
     # ---------- MoM ----------
     if len(month_totals) > 1:
         prev_month = month_totals.iloc[-2]
@@ -138,17 +139,16 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     a3.metric("🛒 Today Spend", rup(today_spend))
     a4.metric("⚡ % Spent (Month)", f"{pct_spent:.1f}%")
 
-
     # ========== ROW 2 — MONTHLY BUDGET HEALTH ==========
     st.markdown("### 💼 Monthly Budget Health")
 
-    b1, b2, b3, b4 = st.columns(4)
+    b1, b2, b3, b4, b5 = st.columns(5)
 
     b1.metric("💰 Balance Left", rup(current_month_income - current_month_spend))
     b2.metric("📅 Days Left", days_left)
     b3.metric("📊 Daily Allowed Left", rup(daily_allowed_left))
     b4.metric("📆 Current Month Spend", rup(current_month_spend))
-
+    b5.metric("🚀 Spend Velocity", rup(spend_velocity))
 
     # ========== ROW 3 — TRENDS ==========
     st.markdown("### 📈 Trends & Growth")
@@ -156,7 +156,6 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
 
     t1.metric("📆 MoM Growth", f"{mom:.1f}%")
     t2.metric("🔄 WoW Change", f"{wow:.1f}%")
-
 
     # ========== ROW 4 — CATEGORY INSIGHTS ==========
     st.markdown("### 🏷 Category Insights")
@@ -166,7 +165,6 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     else:
         st.metric("🏆 Highest Spend Category", "-")
 
-
     st.subheader("📊 Spend Share Breakdown")
     share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
     share["Share %"] = (share["Total Spend"] / total_spend * 100).round(2) if total_spend > 0 else 0
@@ -175,4 +173,3 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     st.dataframe(share, use_container_width=True)
 
     st.success("KPI Dashboard Loaded ✅")
-
