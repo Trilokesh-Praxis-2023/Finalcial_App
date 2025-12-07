@@ -19,7 +19,7 @@ import os
 from datetime import datetime
 
 # 🚀 Imported KPI Dashboards
-from utils.kpi_dashboard import render_kpis, get_income
+from utils.kpi_dashboard import render_kpis
 from utils.kpi_drilldown import render_kpi_suite
 from utils.forecasting_ml import forecasting_ui
 import threading, time, requests, os
@@ -197,7 +197,7 @@ render_kpis(filtered=filtered, df=df, MONTHLY_BUDGET=20000)
 
 
 st.markdown("<h3>📉 Advanced KPI Drilldown</h3>", unsafe_allow_html=True)
-render_kpi_suite(filtered, get_income)
+render_kpi_suite(filtered)
 
 
 # ============================================================
