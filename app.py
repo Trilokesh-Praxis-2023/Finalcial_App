@@ -152,7 +152,7 @@ with st.expander("Add Expense Form"):
 
         with colB:
             acc = st.text_input("🏦 Account / UPI / Card", value="UPI")   # 🔥 Default: UPI
-            amt = st.number_input("💰 Amount", min_value=0.0, value=0.0) # 🔥 Default: 10
+            amt = st.number_input("💰 Amount", min_value=0.0, value=11.0) # 🔥 Default: 10
 
         submit_exp = st.form_submit_button("💾 Save Entry")
 
