@@ -124,7 +124,6 @@ if f_cat:   filtered = filtered[filtered.category.isin(f_cat)]
 if f_acc:   filtered = filtered[filtered.accounts.isin(f_acc)]
 
 
-
 # ============================================================
 # ➕ ADD EXPENSE ENTRY — FORM UI
 # ============================================================
@@ -133,27 +132,27 @@ with st.expander("Add Expense Form"):
 
     # 🔄 REFRESH BUTTON
     if st.button("🔄 Refresh data", key="refresh_after_insert"):
-        # Clear cached DB loader and rerun app
         try:
-            load_data.clear()      # if load_data is @st.cache_data
+            load_data.clear()
         except Exception:
             pass
-        st.rerun()                 # or st.experimental_rerun() on older Streamlit
+        st.rerun()
 
     with st.form("expense_form", clear_on_submit=True):
         colA, colB = st.columns(2)
 
         with colA:
-            d   = st.date_input("📅 Date")
+            d = st.date_input("📅 Date")
             cat = st.selectbox(
-                "📂 Category", 
+                "📂 Category",
                 ["Rent","Recharge","Transport","Food","Other","Household","Health",
-                 "Apparel","Social Life","Beauty","Gift","Education"]
+                 "Apparel","Social Life","Beauty","Gift","Education"],
+                index=3  # 🔥 Default: Food
             )
 
         with colB:
-            acc = st.text_input("🏦 Account / UPI / Card")
-            amt = st.number_input("💰 Amount", min_value=0.0)
+            acc = st.text_input("🏦 Account / UPI / Card", value="UPI")   # 🔥 Default: UPI
+            amt = st.number_input("💰 Amount", min_value=0.0, value=10.0) # 🔥 Default: 10
 
         submit_exp = st.form_submit_button("💾 Save Entry")
 
@@ -175,7 +174,6 @@ with st.expander("Add Expense Form"):
 
             add_row.to_sql("finance_data", engine, index=False, if_exists="append")
 
-            # Clear cache so next run fetches fresh data
             try:
                 load_data.clear()
             except Exception:
@@ -187,6 +185,7 @@ with st.expander("Add Expense Form"):
         except Exception as e:
             st.error("❌ Database insert failed")
             st.code(e)
+
 
 
 
