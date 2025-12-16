@@ -146,7 +146,7 @@ with st.expander("Add Expense Form"):
             cat = st.selectbox(
                 "📂 Category",
                 ["Rent","Recharge","Transport","Food","Other","Household","Health",
-                 "Apparel","Social Life","Beauty","Gift","Education"],
+                 "Apparel","Social Life","Beauty","Gift","Education"."Party", "Party_Weekend"],
                 index=3  # 🔥 Default: Food
             )
 
