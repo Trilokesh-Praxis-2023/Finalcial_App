@@ -170,7 +170,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
 
     b1, b2, b3, b4, b5 = st.columns(5)
 
-    b1.metric("💰 Variable Budget Left", rup(budget_left))
+    b1.metric("💰 Budget Left", rup(budget_left))
     b2.metric("📅 Days Left", days_left)
     b3.metric("⚡ Daily Allowed", rup(daily_allowed_left))
     b4.metric("📆 Month Spend", rup(current_month_spend))
