@@ -75,7 +75,9 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
         st.warning("⚠ No data available for KPI dashboard.")
         return
 
-    # ---------- PREP ----------
+    # =====================================================
+    # 🔧 PREP
+    # =====================================================
     f = filtered.copy()
     f["period"] = pd.to_datetime(f["period"], errors="coerce")
     f["year_month"] = f["period"].dt.to_period("M").astype(str)
@@ -83,81 +85,110 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
 
     today = pd.to_datetime("today").date()
 
-    # Fast grouped data
     month_totals = f.groupby("year_month")["amount"].sum().sort_index()
     cat_sum = f.groupby("category")["amount"].sum().sort_values(ascending=False)
 
     today_spend = f[f["period"].dt.date == today]["amount"].sum()
     total_spend = f["amount"].sum()
 
-    # ---------- CURRENT MONTH ----------
-    month_keys = sorted(set(f["year_month"]))
+    # =====================================================
+    # 📆 CURRENT MONTH
+    # =====================================================
+    month_keys = sorted(f["year_month"].unique())
     current_month_key = month_keys[-1]
     current_month_spend = month_totals.get(current_month_key, 0.0)
 
-    # ---------- INCOME ----------
+    # =====================================================
+    # 💰 INCOME (for reporting only)
+    # =====================================================
     total_income = sum(calc_income(m) for m in month_keys)
     current_month_income = calc_income(current_month_key)
 
-    # ---------- % SPENT ----------
-    pct_spent = (current_month_spend / current_month_income * 100) if current_month_income > 0 else 0
+    pct_spent = (
+        current_month_spend / current_month_income * 100
+        if current_month_income > 0 else 0
+    )
 
-    # ---------- BUDGET HEALTH ----------
+    # =====================================================
+    # 💼 BUDGET LOGIC — ₹18,000 FIXED
+    # =====================================================
+    TOTAL_MONTHLY_BUDGET = 18000
+
+    FIXED_RENT = 11000 + 400 + 588 + 470   # Rent + Internet + Mobile + Electricity
+    VARIABLE_BUDGET = TOTAL_MONTHLY_BUDGET - FIXED_RENT
+
     now_ts = pd.Timestamp.now()
-    FIXED_RENT = 11000 + 400 + 588 + 470
-
     days_total = pd.Period(now_ts, freq="M").days_in_month
     days_left = max(days_total - now_ts.day, 1)
 
-    budget_left = MONTHLY_BUDGET - current_month_spend
+    budget_left = VARIABLE_BUDGET - current_month_spend
     daily_allowed_left = max(budget_left / days_left, 0)
 
-    # ---------- Spend Velocity ----------
-    spend_velocity = current_month_spend / now_ts.day if now_ts.day > 0 else 0
+    spend_velocity = (
+        current_month_spend / now_ts.day if now_ts.day > 0 else 0
+    )
 
-    # ---------- MoM ----------
+    # =====================================================
+    # 📈 MoM
+    # =====================================================
     if len(month_totals) > 1:
         prev_month = month_totals.iloc[-2]
-        mom = ((current_month_spend - prev_month) / prev_month * 100) if prev_month > 0 else 0
+        mom = (
+            (current_month_spend - prev_month) / prev_month * 100
+            if prev_month > 0 else 0
+        )
     else:
         mom = 0
 
-    # ---------- Weekly ----------
+    # =====================================================
+    # 📊 WoW
+    # =====================================================
     f["year_week"] = f["period"].dt.strftime("%Y-W%U")
     weekly = f.groupby("year_week")["amount"].sum().sort_index()
 
     current_week = weekly.iloc[-1] if len(weekly) else 0
     prev_week = weekly.iloc[-2] if len(weekly) > 1 else 0
-    wow = ((current_week - prev_week) / prev_week * 100) if prev_week > 0 else 0
+    wow = (
+        (current_week - prev_week) / prev_week * 100
+        if prev_week > 0 else 0
+    )
 
+    # =====================================================
     # ========== ROW 1 — CORE KPIs ==========
+    # =====================================================
     st.subheader("📊 Financial KPI Overview")
     a1, a2, a3, a4 = st.columns(4)
 
     a1.metric("💰 Total Income", rup(total_income))
     a2.metric("💸 Total Spend", rup(total_spend))
     a3.metric("🛒 Today Spend", rup(today_spend))
-    a4.metric("⚡ % Spent (Month)", f"{pct_spent:.1f}%")
+    a4.metric("⚡ % Spent (Income)", f"{pct_spent:.1f}%")
 
-    # ========== ROW 2 — MONTHLY BUDGET HEALTH ==========
-    st.markdown("### 💼 Monthly Budget Health")
+    # =====================================================
+    # ========== ROW 2 — BUDGET HEALTH ==========
+    # =====================================================
+    st.markdown("### 💼 Monthly Budget Health (₹18,000 Plan)")
 
     b1, b2, b3, b4, b5 = st.columns(5)
 
-    b1.metric("💰 Balance Left", rup(current_month_income - current_month_spend))
+    b1.metric("💰 Variable Budget Left", rup(budget_left))
     b2.metric("📅 Days Left", days_left)
-    b3.metric("📊 Daily Allowed Left", rup(daily_allowed_left))
-    b4.metric("📆 Current Month Spend", rup(current_month_spend))
+    b3.metric("⚡ Daily Allowed", rup(daily_allowed_left))
+    b4.metric("📆 Month Spend", rup(current_month_spend))
     b5.metric("🚀 Spend Velocity", rup(spend_velocity))
 
+    # =====================================================
     # ========== ROW 3 — TRENDS ==========
+    # =====================================================
     st.markdown("### 📈 Trends & Growth")
     t1, t2 = st.columns(2)
 
     t1.metric("📆 MoM Growth", f"{mom:.1f}%")
     t2.metric("🔄 WoW Change", f"{wow:.1f}%")
 
+    # =====================================================
     # ========== ROW 4 — CATEGORY INSIGHTS ==========
+    # =====================================================
     st.markdown("### 🏷 Category Insights")
 
     if len(cat_sum):
@@ -166,8 +197,12 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
         st.metric("🏆 Highest Spend Category", "-")
 
     st.subheader("📊 Spend Share Breakdown")
+
     share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
-    share["Share %"] = (share["Total Spend"] / total_spend * 100).round(2) if total_spend > 0 else 0
+    share["Share %"] = (
+        (share["Total Spend"] / total_spend * 100).round(2)
+        if total_spend > 0 else 0
+    )
     share["Total Spend"] = share["Total Spend"].apply(rup)
 
     st.dataframe(share, use_container_width=True)
