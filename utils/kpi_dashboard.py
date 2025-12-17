@@ -114,8 +114,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     # =====================================================
     TOTAL_MONTHLY_BUDGET = 18000
 
-    FIXED_RENT = 11000 + 400 + 588 + 470   # Rent + Internet + Mobile + Electricity
-    VARIABLE_BUDGET = TOTAL_MONTHLY_BUDGET - FIXED_RENT
+    VARIABLE_BUDGET = TOTAL_MONTHLY_BUDGET 
 
     now_ts = pd.Timestamp.now()
     days_total = pd.Period(now_ts, freq="M").days_in_month
