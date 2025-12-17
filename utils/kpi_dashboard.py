@@ -110,9 +110,9 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     )
 
     # =====================================================
-    # 💼 BUDGET LOGIC — ₹18,000 FIXED
+    # 💼 BUDGET LOGIC — ₹20,000 FIXED
     # =====================================================
-    TOTAL_MONTHLY_BUDGET = 18000
+    TOTAL_MONTHLY_BUDGET = 20000
 
     VARIABLE_BUDGET = TOTAL_MONTHLY_BUDGET 
 
