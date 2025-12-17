@@ -366,8 +366,4 @@ def render_kpi_suite(filtered, get_income):
         st.error(f"📉 Minimum Spend Day → **₹{cal_day.amount.min():,.0f}**")
 
 
-   
-
-
-
 # ====================== END OF KPI MODULE ======================
