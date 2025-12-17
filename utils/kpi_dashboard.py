@@ -166,7 +166,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     # =====================================================
     # ========== ROW 2 — BUDGET HEALTH ==========
     # =====================================================
-    st.markdown("### 💼 Monthly Budget Health (₹18,000 Plan)")
+    st.markdown("### 💼 Monthly Budget Health")
 
     b1, b2, b3, b4, b5 = st.columns(5)
 
