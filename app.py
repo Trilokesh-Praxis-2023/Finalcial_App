@@ -23,6 +23,8 @@ from utils.kpi_dashboard import render_kpis, get_income
 from utils.kpi_drilldown import render_kpi_suite
 from utils.forecasting_ml import forecasting_ui
 import threading, time, requests, os
+from utils.kpi_dashboard import render_kpis, get_income
+
 
 
 
