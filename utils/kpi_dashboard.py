@@ -66,6 +66,10 @@ def calc_income(year_month: str) -> float:
         return 24200
     return 0.0
 
+# Backward compatibility helper (used in app.py)
+def get_income(month):
+    return calc_income(month)
+
 
 # =======================================================================
 # 🔮 CURRENT MONTH FORECAST (FROM DAILY ML MODEL)
