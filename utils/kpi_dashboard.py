@@ -4,23 +4,21 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import altair as alt
-
-# If no separate file exists, uncomment this & remove import ↑
+import os, joblib
 
 
 # =======================================================================
 # 🔥 MINI SPARKLINE (embedded KPI chart)
 # =======================================================================
 
-
 def sparkline(data, color="#ffbf00"):
     """Generates tiny mini trend chart for KPI"""
     if len(data) < 2:
         return None
 
-    df = data.reset_index(drop=True).rename(columns={data.name:"value"})
+    df = data.reset_index(drop=True).rename(columns={data.name: "value"})
 
     return (
         alt.Chart(df.reset_index())
@@ -31,14 +29,10 @@ def sparkline(data, color="#ffbf00"):
 
 
 # =======================================================================
-#               🔥 MAIN RENDER FUNCTION (CALL IN APP.PY)
+# 💰 FORMATTING HELPERS
 # =======================================================================
 
-def get_income(month):
-    return calc_income(month)
-
 def fmt_k(n):
-    """Format number into K/M style for metrics."""
     try:
         n = float(n)
     except:
@@ -54,8 +48,11 @@ def rup(n):
     return f"₹{fmt_k(n)}"
 
 
+# =======================================================================
+# 💼 INCOME LOGIC
+# =======================================================================
+
 def calc_income(year_month: str) -> float:
-    """Income logic for each month."""
     try:
         ym = pd.to_datetime(year_month, format="%Y-%m")
     except:
@@ -68,6 +65,57 @@ def calc_income(year_month: str) -> float:
     elif ym >= pd.Timestamp(2024, 12, 1):
         return 24200
     return 0.0
+
+
+# =======================================================================
+# 🔮 CURRENT MONTH FORECAST (FROM DAILY ML MODEL)
+# =======================================================================
+
+def get_current_month_forecast(
+    filtered,
+    DAILY_MODEL_PATH="models/daily_forecast_model.pkl"
+):
+    if not os.path.exists(DAILY_MODEL_PATH):
+        return None
+
+    model = joblib.load(DAILY_MODEL_PATH)
+
+    df = filtered.copy()
+    df["period"] = pd.to_datetime(df["period"])
+    daily = df.groupby("period")["amount"].sum().reset_index()
+
+    today = pd.Timestamp.today().normalize()
+    end_of_month = today + pd.offsets.MonthEnd(0)
+
+    future_dates = pd.date_range(today, end_of_month)
+
+    if future_dates.empty:
+        return None
+
+    future = pd.DataFrame({"period": future_dates})
+    future["day"]   = future["period"].dt.day
+    future["dow"]   = future["period"].dt.dayofweek
+    future["month"] = future["period"].dt.month
+    future["t"]     = range(len(daily), len(daily) + len(future))
+
+    remaining_forecast = model.predict(
+        future[["day","dow","month","t"]]
+    ).clip(0).sum()
+
+    spent_so_far = df[
+        df["period"].dt.to_period("M") == today.to_period("M")
+    ]["amount"].sum()
+
+    return {
+        "spent_so_far": spent_so_far,
+        "remaining_forecast": remaining_forecast,
+        "forecast_total": spent_so_far + remaining_forecast
+    }
+
+
+# =======================================================================
+#               🔥 MAIN KPI RENDER FUNCTION
+# =======================================================================
 
 def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float):
 
@@ -99,7 +147,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     current_month_spend = month_totals.get(current_month_key, 0.0)
 
     # =====================================================
-    # 💰 INCOME (for reporting only)
+    # 💰 INCOME
     # =====================================================
     total_income = sum(calc_income(m) for m in month_keys)
     current_month_income = calc_income(current_month_key)
@@ -110,17 +158,15 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     )
 
     # =====================================================
-    # 💼 BUDGET LOGIC — ₹20,000 FIXED
+    # 💼 BUDGET LOGIC
     # =====================================================
-    TOTAL_MONTHLY_BUDGET = 20000
-
-    VARIABLE_BUDGET = TOTAL_MONTHLY_BUDGET 
+    TOTAL_MONTHLY_BUDGET = MONTHLY_BUDGET
 
     now_ts = pd.Timestamp.now()
     days_total = pd.Period(now_ts, freq="M").days_in_month
     days_left = max(days_total - now_ts.day, 1)
 
-    budget_left = VARIABLE_BUDGET - current_month_spend
+    budget_left = TOTAL_MONTHLY_BUDGET - current_month_spend
     daily_allowed_left = max(budget_left / days_left, 0)
 
     spend_velocity = (
@@ -128,29 +174,25 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     )
 
     # =====================================================
-    # 📈 MoM
+    # 📈 MoM & WoW
     # =====================================================
-    if len(month_totals) > 1:
-        prev_month = month_totals.iloc[-2]
-        mom = (
-            (current_month_spend - prev_month) / prev_month * 100
-            if prev_month > 0 else 0
-        )
-    else:
-        mom = 0
+    mom = (
+        ((month_totals.iloc[-1] - month_totals.iloc[-2]) / month_totals.iloc[-2] * 100)
+        if len(month_totals) > 1 and month_totals.iloc[-2] > 0 else 0
+    )
 
-    # =====================================================
-    # 📊 WoW
-    # =====================================================
     f["year_week"] = f["period"].dt.strftime("%Y-W%U")
     weekly = f.groupby("year_week")["amount"].sum().sort_index()
 
-    current_week = weekly.iloc[-1] if len(weekly) else 0
-    prev_week = weekly.iloc[-2] if len(weekly) > 1 else 0
     wow = (
-        (current_week - prev_week) / prev_week * 100
-        if prev_week > 0 else 0
+        ((weekly.iloc[-1] - weekly.iloc[-2]) / weekly.iloc[-2] * 100)
+        if len(weekly) > 1 and weekly.iloc[-2] > 0 else 0
     )
+
+    # =====================================================
+    # 🔮 FORECAST
+    # =====================================================
+    forecast = get_current_month_forecast(filtered)
 
     # =====================================================
     # ========== ROW 1 — CORE KPIs ==========
@@ -177,25 +219,46 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     b5.metric("🚀 Spend Velocity", rup(spend_velocity))
 
     # =====================================================
-    # ========== ROW 3 — TRENDS ==========
+    # ========== ROW 3 — FORECAST KPIs ==========
+    # =====================================================
+    st.markdown("### 🔮 Forecast Outlook (AI)")
+
+    f1, f2, f3 = st.columns(3)
+
+    if forecast:
+        f1.metric("🤖 Forecasted Month Spend", rup(forecast["forecast_total"]))
+        f2.metric(
+            "📊 Forecast vs Budget",
+            rup(forecast["forecast_total"] - TOTAL_MONTHLY_BUDGET),
+            delta="Over Budget" if forecast["forecast_total"] > TOTAL_MONTHLY_BUDGET else "Under Budget"
+        )
+        f3.metric(
+            "⚡ Forecast Daily Avg (Remaining)",
+            rup(forecast["remaining_forecast"] / days_left if days_left > 0 else 0)
+        )
+    else:
+        f1.metric("🤖 Forecasted Month Spend", "—")
+        f2.metric("📊 Forecast vs Budget", "—")
+        f3.metric("⚡ Forecast Daily Avg", "—")
+
+    # =====================================================
+    # ========== ROW 4 — TRENDS ==========
     # =====================================================
     st.markdown("### 📈 Trends & Growth")
-    t1, t2 = st.columns(2)
 
+    t1, t2 = st.columns(2)
     t1.metric("📆 MoM Growth", f"{mom:.1f}%")
     t2.metric("🔄 WoW Change", f"{wow:.1f}%")
 
     # =====================================================
-    # ========== ROW 4 — CATEGORY INSIGHTS ==========
+    # ========== ROW 5 — CATEGORY INSIGHTS ==========
     # =====================================================
     st.markdown("### 🏷 Category Insights")
 
-    if len(cat_sum):
-        st.metric("🏆 Highest Spend Category", cat_sum.idxmax())
-    else:
-        st.metric("🏆 Highest Spend Category", "-")
-
-    st.subheader("📊 Spend Share Breakdown")
+    st.metric(
+        "🏆 Highest Spend Category",
+        cat_sum.idxmax() if len(cat_sum) else "-"
+    )
 
     share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
     share["Share %"] = (

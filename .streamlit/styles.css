@@ -109,6 +109,34 @@ span[data-testid="stMetricLabel"] {
 
 
 /* =======================================================================
+   📘 FORECAST INTERPRETATION CARD — Gold Glass Info Panel
+   ======================================================================= */
+.forecast-info {
+    background: linear-gradient(
+        145deg,
+        rgba(255,200,60,0.08),
+        rgba(20,20,20,0.92)
+    );
+    border-left: 4px solid var(--gold);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    box-shadow: 0 0 18px rgba(255,190,40,0.25);
+    backdrop-filter: blur(8px);
+}
+
+.forecast-info b {
+    color: var(--gold);
+}
+
+.forecast-info span {
+    color: var(--gold-soft);
+    font-weight: 500;
+}
+
+
+/* =======================================================================
    ⭐ SIDEBAR — Royal Glass + Neon Gold Beam
    ======================================================================= */
 section[data-testid="stSidebar"] {

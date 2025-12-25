@@ -257,6 +257,9 @@ except Exception as e:
 # 🔮 Forecasting UI Section
 # ===========================
 st.markdown("<h2 class='page-title'>🔮 AI Forecasting Module</h2>", unsafe_allow_html=True)
+if filtered is not None and not filtered.empty:
+    forecasting_ui(filtered)
+else:
+    st.warning("⚠ No data available for forecasting.")
 
-forecasting_ui(filtered)
 
