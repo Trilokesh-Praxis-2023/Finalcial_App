@@ -1,6 +1,7 @@
 # ============================================================
 # 📁 forecast_train_from_db.py
 # Load finance_data from PostgreSQL → Train & Save ML Models
+# (STABLE, NO TREND LEAKAGE)
 # ============================================================
 
 import os
@@ -12,28 +13,31 @@ from sqlalchemy import create_engine
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 
-# =============================
-# GLOBAL CONFIG
-# =============================
-FIXED_RENT = 11600  
 
-MODEL_DIR = "models/"
+# ============================================================
+# GLOBAL CONFIG
+# ============================================================
+MODEL_DIR = "models"
 DAILY_MODEL_PATH   = os.path.join(MODEL_DIR, "daily_forecast_model.pkl")
 MONTHLY_MODEL_PATH = os.path.join(MODEL_DIR, "monthly_forecast_model.pkl")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
-
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL") or \
-    f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@" \
-    f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+
+# ============================================================
+# DATABASE CONNECTION
+# ============================================================
+DATABASE_URL = os.getenv("DATABASE_URL") or (
+    f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+    f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+)
 
 engine = create_engine(DATABASE_URL)
 
 
 # ============================================================
-# 📥 LOAD DATA FROM finance_data (Your Table)
+# 📥 LOAD DATA
 # ============================================================
 def load_data():
     try:
@@ -41,11 +45,10 @@ def load_data():
         df.columns = df.columns.str.lower()
 
         df["period"] = pd.to_datetime(df["period"], errors="coerce")
-        df["year"] = df["period"].dt.year
-        df["year_month"] = df["period"].dt.to_period("M").astype(str)
         df["amount"] = df["amount"].astype(float)
+        df["year_month"] = df["period"].dt.to_period("M").astype(str)
 
-        df = df.dropna(subset=["period"])  # ensure no missing dates
+        df = df.dropna(subset=["period"])
 
         print(f"✔ Loaded {len(df)} rows from finance_data")
         return df
@@ -53,7 +56,6 @@ def load_data():
     except Exception as e:
         print(f"❌ Error loading finance_data: {e}")
         return pd.DataFrame()
-
 
 
 # ============================================================
@@ -65,7 +67,7 @@ def save_model(model, path):
 
 
 # ============================================================
-# 📆 TRAIN DAILY MODEL
+# 📆 TRAIN DAILY MODEL (FIXED & STABLE)
 # ============================================================
 def train_daily_model(data):
 
@@ -75,33 +77,48 @@ def train_daily_model(data):
         print("⚠ Need at least 10 days of data to train Daily Model.")
         return
 
+    # ---------------- FEATURES ----------------
     daily["day"]   = daily["period"].dt.day
     daily["dow"]   = daily["period"].dt.dayofweek
     daily["month"] = daily["period"].dt.month
-    daily["t"]     = range(len(daily))
 
-    X = daily[["day", "dow", "month", "t"]]
-    y = daily["amount"].clip(lower=0)
+    # ---------------- TARGET ----------------
+    # Cap extreme outliers (party / one-time spends)
+    cap = daily["amount"].quantile(0.95)
+    daily["amount_capped"] = daily["amount"].clip(0, cap)
 
+    X = daily[["day", "dow", "month"]]
+    y = daily["amount_capped"]
+
+    # ---------------- SPLIT ----------------
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, shuffle=False
     )
 
     model = xgb.XGBRegressor(
-        n_estimators=400, learning_rate=0.05,
-        max_depth=6, subsample=0.85, colsample_bytree=0.9,
-        reg_alpha=1.2, reg_lambda=1.3, objective="reg:squarederror"
+        n_estimators=120,
+        learning_rate=0.08,
+        max_depth=3,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        reg_alpha=1.5,
+        reg_lambda=2.0,
+        objective="reg:squarederror",
+        random_state=42
     )
 
+
     model.fit(X_train, y_train)
-    mae = mean_absolute_error(y_test, model.predict(X_test))
+
+    preds = model.predict(X_test)
+    mae = mean_absolute_error(y_test, preds)
 
     save_model(model, DAILY_MODEL_PATH)
     print(f"📆 Daily Model Trained — MAE: ₹{mae:,.2f}")
 
 
 # ============================================================
-# 📅 TRAIN MONTHLY MODEL
+# 📅 TRAIN MONTHLY MODEL (TOTAL SPEND)
 # ============================================================
 def train_monthly_model(data):
 
@@ -112,27 +129,35 @@ def train_monthly_model(data):
         print("⚠ Need at least 6 months of data to train Monthly Model.")
         return
 
+    monthly = monthly.sort_values("year_month")
+
     monthly["month"] = monthly["year_month"].dt.month
     monthly["year"]  = monthly["year_month"].dt.year
-    monthly["t"]     = range(len(monthly))
-    monthly["variable"] = (monthly["amount"] - FIXED_RENT).clip(lower=0)
+    monthly["t"]     = range(len(monthly))  # OK at monthly granularity
 
     X = monthly[["month", "year", "t"]]
-    y = monthly["variable"]
+    y = monthly["amount"]
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, shuffle=False
     )
 
     model = xgb.XGBRegressor(
-        n_estimators=450, learning_rate=0.06,
-        max_depth=6, subsample=0.9, colsample_bytree=0.9,
-        reg_alpha=1.1, reg_lambda=1.3,
-        objective="reg:squarederror"
+        n_estimators=350,
+        learning_rate=0.06,
+        max_depth=6,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        reg_alpha=1.1,
+        reg_lambda=1.3,
+        objective="reg:squarederror",
+        random_state=42
     )
 
     model.fit(X_train, y_train)
-    mae = mean_absolute_error(y_test, model.predict(X_test))
+
+    preds = model.predict(X_test)
+    mae = mean_absolute_error(y_test, preds)
 
     save_model(model, MONTHLY_MODEL_PATH)
     print(f"📊 Monthly Model Trained — MAE: ₹{mae:,.2f}")
@@ -142,6 +167,7 @@ def train_monthly_model(data):
 # ▶ MAIN
 # ============================================================
 if __name__ == "__main__":
+
     print("🔄 Loading finance_data...")
     df = load_data()
 
