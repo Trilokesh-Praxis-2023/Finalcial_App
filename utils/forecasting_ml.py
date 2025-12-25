@@ -1,6 +1,6 @@
 # ============================================================
 # 📁 forecasting_ml.py
-# Daily ML Forecast + Monthly Rolling Mean (Stable & Reliable)
+# ML Forecasting (Daily + Monthly) + Auto-Predict + Performance
 # ============================================================
 
 import os, joblib
@@ -17,14 +17,14 @@ from sklearn.metrics import mean_absolute_error
 # GLOBAL CONFIG
 # ============================================================
 MODEL_DIR = "models"
-DAILY_MODEL_PATH = f"{MODEL_DIR}/daily_forecast_model.pkl"
+DAILY_MODEL_PATH   = f"{MODEL_DIR}/daily_forecast_model.pkl"
+MONTHLY_MODEL_PATH = f"{MODEL_DIR}/monthly_forecast_model.pkl"
 
 
 # ============================================================
-# 📆 DAILY MODEL TRAINING (NO TREND LEAKAGE)
+# 📆 DAILY MODEL TRAINING (FIXED — NO TREND LEAKAGE)
 # ============================================================
 def train_daily_model(filtered):
-
     df = filtered.copy()
     df["period"] = pd.to_datetime(df["period"])
 
@@ -53,8 +53,7 @@ def train_daily_model(filtered):
         colsample_bytree=0.9,
         reg_alpha=1.0,
         reg_lambda=1.2,
-        objective="reg:squarederror",
-        random_state=42
+        objective="reg:squarederror"
     )
 
     model.fit(X_train, y_train)
@@ -70,7 +69,6 @@ def train_daily_model(filtered):
 # 📆 DAILY FORECAST (SAFE + CAPPED)
 # ============================================================
 def predict_daily_ml(filtered, future_days=30):
-
     if not os.path.exists(DAILY_MODEL_PATH):
         st.error("⚠ Daily Model Missing. Train First.")
         return
@@ -82,22 +80,21 @@ def predict_daily_ml(filtered, future_days=30):
     daily = df.groupby("period")["amount"].sum().reset_index()
 
     last_date = daily["period"].max()
-    future_dates = pd.date_range(
-        last_date + timedelta(days=1),
-        periods=future_days
-    )
+    future_dates = pd.date_range(last_date + timedelta(days=1), periods=future_days)
 
     future = pd.DataFrame({"period": future_dates})
     future["day"]   = future["period"].dt.day
     future["dow"]   = future["period"].dt.dayofweek
     future["month"] = future["period"].dt.month
 
+    # 🔒 Safety cap based on history
     max_daily = daily["amount"].quantile(0.95)
     avg_daily = daily["amount"].mean()
 
     preds = model.predict(future[["day", "dow", "month"]])
-    preds = preds.clip(0, max_daily)
 
+    # Conservative guardrail
+    preds = preds.clip(0, max_daily)
     if preds.mean() > avg_daily * 2:
         preds = preds.clip(0, avg_daily * 1.5)
 
@@ -107,13 +104,12 @@ def predict_daily_ml(filtered, future_days=30):
     future = future.rename(columns={"period": "Date"})
 
     chart = (
-        alt.Chart(hist)
-        .mark_line(point=True, color="#4FC3F7")
+        alt.Chart(hist).mark_line(point=True, color="#4FC3F7")
         .encode(x="Date:T", y="Actual:Q")
         +
-        alt.Chart(future)
-        .mark_line(point=True, color="#FFC107", strokeDash=[4,3])
-        .encode(x="Date:T", y="Forecast:Q")
+        alt.Chart(future).mark_line(
+            point=True, color="#FFC107", strokeDash=[4,3]
+        ).encode(x="Date:T", y="Forecast:Q")
     )
 
     st.altair_chart(chart, use_container_width=True)
@@ -124,7 +120,6 @@ def predict_daily_ml(filtered, future_days=30):
 # 📏 DAILY MODEL PERFORMANCE
 # ============================================================
 def evaluate_daily_model(filtered):
-
     if not os.path.exists(DAILY_MODEL_PATH):
         st.error("⚠ Train Daily Model First")
         return
@@ -152,62 +147,137 @@ def evaluate_daily_model(filtered):
     st.write(f"**MAE:** ₹{mae:,.2f}")
     st.write(f"**MAPE:** {mape:.2f}%")
 
+    chart = (
+        alt.Chart(daily.rename(columns={"period": "Date", "amount": "Actual"}))
+        .mark_line(point=True, color="#42A5F5")
+        .encode(x="Date:T", y="Actual:Q")
+        +
+        alt.Chart(daily.rename(columns={"period": "Date"}))
+        .mark_line(point=True, color="#EF5350", strokeDash=[4,3])
+        .encode(x="Date:T", y="Predicted:Q")
+    )
+
+    st.altair_chart(chart, use_container_width=True)
     st.dataframe(daily[["period","amount","Predicted","Error"]])
 
 
 # ============================================================
-# 📅 MONTHLY FORECAST — ROLLING MEAN (NO ML)
+# 📅 MONTHLY MODEL (UNCHANGED)
 # ============================================================
-def predict_monthly_rolling_mean(filtered, months=6, window=3):
+def train_monthly_model(filtered):
 
     monthly = filtered.groupby("year_month")["amount"].sum().reset_index()
     monthly["year_month"] = pd.to_datetime(monthly["year_month"])
-    monthly = monthly.sort_values("year_month")
 
-    if len(monthly) < 2:
-        st.warning("⚠ Not enough data for monthly forecast.")
+    if len(monthly) < 6:
+        st.warning("⚠ Need at least 6 months of data.")
         return
 
-    win = min(window, len(monthly))
+    monthly = monthly.sort_values("year_month")
+    monthly["month"] = monthly["year_month"].dt.month
+    monthly["year"]  = monthly["year_month"].dt.year
+    monthly["t"]     = range(len(monthly))
 
-    rolling_value = (
-        monthly["amount"]
-        .rolling(win)
-        .mean()
-        .iloc[-1]
+    X = monthly[["month","year","t"]]
+    y = monthly["amount"]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.25, shuffle=False
     )
 
-    future_months = pd.date_range(
-        start=monthly["year_month"].iloc[-1] + pd.offsets.MonthBegin(),
-        periods=months,
-        freq="MS"
+    model = xgb.XGBRegressor(
+        n_estimators=450,
+        learning_rate=0.06,
+        max_depth=6,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        reg_alpha=1.1,
+        reg_lambda=1.3,
+        objective="reg:squarederror"
     )
+
+    model.fit(X_train, y_train)
+    mae = mean_absolute_error(y_test, model.predict(X_test))
+
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    joblib.dump(model, MONTHLY_MODEL_PATH)
+
+    st.success(f"📊 Monthly Model Trained — MAE: ₹{mae:,.0f} (Saved)")
+
+
+def predict_monthly_ml(filtered, months=6):
+
+    if not os.path.exists(MONTHLY_MODEL_PATH):
+        st.error("⚠ Monthly Model Missing. Train First.")
+        return
+
+    model = joblib.load(MONTHLY_MODEL_PATH)
+
+    monthly = filtered.groupby("year_month")["amount"].sum().reset_index()
+    monthly["year_month"] = pd.to_datetime(monthly["year_month"])
+
+    monthly = monthly.sort_values("year_month")
+    monthly["month"] = monthly["year_month"].dt.month
+    monthly["year"]  = monthly["year_month"].dt.year
+    monthly["t"]     = range(len(monthly))
 
     future = pd.DataFrame({
-        "Month": future_months,
-        "Forecast": [rolling_value] * months
+        "year_month": pd.date_range(
+            start=monthly["year_month"].iloc[-1] + pd.offsets.MonthBegin(),
+            periods=months, freq="MS"
+        )
     })
 
-    hist = monthly.rename(
-        columns={"year_month": "Month", "amount": "Actual"}
-    )
+    future["month"] = future["year_month"].dt.month
+    future["year"]  = future["year_month"].dt.year
+    future["t"]     = range(len(monthly), len(monthly) + months)
+
+    future["Forecast"] = model.predict(
+        future[["month","year","t"]]
+    ).clip(0)
+
+    hist = monthly.rename(columns={"year_month":"Month","amount":"Actual"})
+    future = future.rename(columns={"year_month":"Month"})
 
     chart = (
-        alt.Chart(hist)
-        .mark_line(point=True, color="#FFC300")
+        alt.Chart(hist).mark_line(point=True, color="#FFC300")
         .encode(x="Month:T", y="Actual:Q")
         +
-        alt.Chart(future)
-        .mark_line(point=True, color="#00E676", strokeDash=[4,3])
-        .encode(x="Month:T", y="Forecast:Q")
+        alt.Chart(future).mark_line(
+            point=True, color="#00E676", strokeDash=[4,3]
+        ).encode(x="Month:T", y="Forecast:Q")
     )
 
     st.altair_chart(chart, use_container_width=True)
     st.dataframe(future)
 
-    st.caption(
-        f"📌 Monthly forecast uses {win}-month rolling average (stable mode)"
-    )
+
+def evaluate_monthly_model(filtered):
+    if not os.path.exists(MONTHLY_MODEL_PATH):
+        st.error("⚠ Train Monthly Model First")
+        return
+
+    model = joblib.load(MONTHLY_MODEL_PATH)
+
+    monthly = filtered.groupby("year_month")["amount"].sum().reset_index()
+    monthly["year_month"] = pd.to_datetime(monthly["year_month"])
+
+    monthly = monthly.sort_values("year_month")
+    monthly["month"] = monthly["year_month"].dt.month
+    monthly["year"]  = monthly["year_month"].dt.year
+    monthly["t"]     = range(len(monthly))
+
+    monthly["Predicted"] = model.predict(monthly[["month","year","t"]])
+    monthly["Error"] = monthly["amount"] - monthly["Predicted"]
+
+    mae  = abs(monthly["Error"]).mean()
+    mape = (abs(monthly["Error"]) / monthly["amount"].replace(0, 1)).mean() * 100
+
+    st.subheader("📊 Monthly Model Performance")
+    st.write(f"**MAE:** ₹{mae:,.2f}")
+    st.write(f"**MAPE:** {mape:.2f}%")
+
+    st.dataframe(monthly[["year_month","amount","Predicted","Error"]])
 
 
 # ============================================================
@@ -217,9 +287,7 @@ def forecasting_ui(filtered):
 
     st.markdown("""
         <h3 style='color:#6C5CE7;'>🔮 Machine Learning Forecast Dashboard</h3>
-        <p style='color:gray;'>
-            Daily ML forecast + Monthly rolling average (production safe)
-        </p>
+        <p style='color:gray;'>Daily & Monthly spend prediction using XGBoost.</p>
     """, unsafe_allow_html=True)
 
     with st.expander("⚙️ Model Status & Auto-Training", expanded=False):
@@ -230,13 +298,22 @@ def forecasting_ui(filtered):
         else:
             st.success("📆 Daily Model Loaded ✔")
 
+        if not os.path.exists(MONTHLY_MODEL_PATH):
+            st.info("📌 Monthly model missing → training automatically...")
+            train_monthly_model(filtered)
+        else:
+            st.success("📅 Monthly Model Loaded ✔")
+
     st.markdown("### 📆 Daily Forecast (Next 30 Days)")
     predict_daily_ml(filtered)
 
-    st.markdown("### 📅 Monthly Forecast (Rolling Average)")
-    predict_monthly_rolling_mean(filtered)
+    st.markdown("### 📅 Monthly Forecast (Next 6 Months)")
+    predict_monthly_ml(filtered)
 
     st.markdown("---")
 
     with st.expander("📏 Daily Model Performance", expanded=False):
         evaluate_daily_model(filtered)
+
+    with st.expander("📊 Monthly Model Performance", expanded=False):
+        evaluate_monthly_model(filtered)
