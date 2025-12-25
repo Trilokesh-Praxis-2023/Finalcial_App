@@ -271,3 +271,56 @@ def evaluate_monthly_model(filtered):
 
     st.altair_chart(chart, use_container_width=True)
     st.dataframe(monthly[["year_month","amount","Predicted","Error"]])
+
+
+# ============================================================
+# 🔮 FORECASTING UI — MAIN ENTRY POINT (USED IN app.py)
+# ============================================================
+def forecasting_ui(filtered):
+
+    st.markdown("""
+        <h3 style='color:#6C5CE7;'>🔮 Machine Learning Forecast Dashboard</h3>
+        <p style='color:gray;'>Daily & Monthly spend prediction using XGBoost.</p>
+    """, unsafe_allow_html=True)
+
+    # ========================================================
+    # ⚙️ MODEL STATUS & AUTO-TRAIN
+    # ========================================================
+    with st.expander("⚙️ Model Status & Auto-Training", expanded=False):
+
+        if not os.path.exists(DAILY_MODEL_PATH):
+            st.info("📌 Daily model missing → training automatically...")
+            train_daily_model(filtered)
+        else:
+            st.success("📆 Daily Model Loaded ✔")
+
+        if not os.path.exists(MONTHLY_MODEL_PATH):
+            st.info("📌 Monthly model missing → training automatically...")
+            train_monthly_model(filtered)
+        else:
+            st.success("📅 Monthly Model Loaded ✔")
+
+    # ========================================================
+    # 📆 DAILY FORECAST
+    # ========================================================
+    st.markdown("### 📆 Daily Forecast (Next 30 Days)")
+    predict_daily_ml(filtered)
+
+    # ========================================================
+    # 📅 MONTHLY FORECAST
+    # ========================================================
+    st.markdown("### 📅 Monthly Forecast (Next 6 Months)")
+    predict_monthly_ml(filtered)
+
+    st.markdown("---")
+
+    # ========================================================
+    # 📈 PERFORMANCE
+    # ========================================================
+    with st.expander("📏 Daily Model Performance", expanded=False):
+        evaluate_daily_model(filtered)
+
+    with st.expander("📊 Monthly Model Performance", expanded=False):
+        evaluate_monthly_model(filtered)
+
+# ============================================================
