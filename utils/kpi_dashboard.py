@@ -86,7 +86,11 @@ def get_current_month_forecast(
 
     df = filtered.copy()
     df["period"] = pd.to_datetime(df["period"])
+
     daily = df.groupby("period")["amount"].sum().reset_index()
+
+    if daily.empty:
+        return None
 
     today = pd.Timestamp.today().normalize()
     end_of_month = today + pd.offsets.MonthEnd(0)
@@ -100,20 +104,32 @@ def get_current_month_forecast(
     future["day"]   = future["period"].dt.day
     future["dow"]   = future["period"].dt.dayofweek
     future["month"] = future["period"].dt.month
-    future["t"]     = range(len(daily), len(daily) + len(future))
 
-    remaining_forecast = model.predict(
-        future[["day","dow","month","t"]]
-    ).clip(0).sum()
+    # ---------------- SAFETY CAPS ----------------
+    max_daily = daily["amount"].quantile(0.95)
+    avg_daily = daily["amount"].mean()
+
+    preds = model.predict(
+        future[["day", "dow", "month"]]
+    )
+
+    # Hard cap
+    preds = preds.clip(0, max_daily)
+
+    # Conservative sanity check
+    if preds.mean() > avg_daily * 2:
+        preds = preds.clip(0, avg_daily * 1.5)
+
+    remaining_forecast = preds.sum()
 
     spent_so_far = df[
         df["period"].dt.to_period("M") == today.to_period("M")
     ]["amount"].sum()
 
     return {
-        "spent_so_far": spent_so_far,
-        "remaining_forecast": remaining_forecast,
-        "forecast_total": spent_so_far + remaining_forecast
+        "spent_so_far": round(spent_so_far, 2),
+        "remaining_forecast": round(remaining_forecast, 2),
+        "forecast_total": round(spent_so_far + remaining_forecast, 2)
     }
 
 
