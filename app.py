@@ -205,8 +205,8 @@ render_kpi_suite(filtered, get_income)
 st.markdown("<h3>📄 Transactions</h3>", unsafe_allow_html=True)
 
 df_show = filtered.copy()
-df_show["period"] = df_show["period"].dt.date
-df_show = df_show.sort_values("period", ascending=False)
+df_show["Period"] = df_show["Period"].dt.date
+df_show = df_show.sort_values("Period", ascending=False)
 
 st.dataframe(df_show, use_container_width=True, height=260)
 
