@@ -178,20 +178,34 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     )
 
     # =====================================================
-    # 💼 BUDGET LOGIC
+    # 💼 BUDGET LOGIC — MONTHLY RESET (1st of every month)
     # =====================================================
-    TOTAL_MONTHLY_BUDGET = MONTHLY_BUDGET
 
     now_ts = pd.Timestamp.now()
-    days_total = pd.Period(now_ts, freq="M").days_in_month
-    days_left = max(days_total - now_ts.day, 1)
+    current_month_start = now_ts.replace(day=1).normalize()
+    current_month_end = current_month_start + pd.offsets.MonthEnd(0)
 
-    budget_left = TOTAL_MONTHLY_BUDGET - current_month_spend
-    daily_allowed_left = max(budget_left / days_left, 0)
+    # Filter ONLY current month data
+    current_month_df = f[
+        (f["period"] >= current_month_start) &
+        (f["period"] <= current_month_end)
+    ]
+
+    # Monthly reset happens naturally here
+    current_month_spend = current_month_df["amount"].sum()
+
+    TOTAL_MONTHLY_BUDGET = MONTHLY_BUDGET
+
+    days_total = pd.Period(now_ts, freq="M").days_in_month
+    days_left = max(days_total - now_ts.day + 1, 1)
+
+    budget_left = max(TOTAL_MONTHLY_BUDGET - current_month_spend, 0)
+    daily_allowed_left = budget_left / days_left
 
     spend_velocity = (
         current_month_spend / now_ts.day if now_ts.day > 0 else 0
     )
+
 
     # =====================================================
     # 📈 MoM & WoW
