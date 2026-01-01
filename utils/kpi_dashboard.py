@@ -148,52 +148,49 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     # =====================================================
     f = filtered.copy()
     f["period"] = pd.to_datetime(f["period"], errors="coerce")
-    f["year_month"] = f["period"].dt.to_period("M").astype(str)
     f["amount"] = pd.to_numeric(f["amount"], errors="coerce").fillna(0.0)
+    f["year_month"] = f["period"].dt.to_period("M").astype(str)
 
-    today = pd.to_datetime("today").date()
+    today = pd.Timestamp.today().date()
+    now_ts = pd.Timestamp.now()
+
+    # =====================================================
+    # 📊 GLOBAL METRICS (ALL TIME)
+    # =====================================================
+    total_spend = f["amount"].sum()
+    today_spend = f[f["period"].dt.date == today]["amount"].sum()
 
     month_totals = f.groupby("year_month")["amount"].sum().sort_index()
     cat_sum = f.groupby("category")["amount"].sum().sort_values(ascending=False)
 
-    today_spend = f[f["period"].dt.date == today]["amount"].sum()
-    total_spend = f["amount"].sum()
-
     # =====================================================
-    # 📆 CURRENT MONTH
+    # 📆 CURRENT MONTH (DATE-DRIVEN)
     # =====================================================
-    month_keys = sorted(f["year_month"].unique())
-    current_month_key = month_keys[-1]
-    current_month_spend = month_totals.get(current_month_key, 0.0)
-
-    # =====================================================
-    # 💰 INCOME
-    # =====================================================
-    total_income = sum(calc_income(m) for m in month_keys)
-    current_month_income = calc_income(current_month_key)
-
-    pct_spent = (
-        current_month_spend / current_month_income * 100
-        if current_month_income > 0 else 0
-    )
-
-    # =====================================================
-    # 💼 BUDGET LOGIC — MONTHLY RESET (1st of every month)
-    # =====================================================
-
-    now_ts = pd.Timestamp.now()
     current_month_start = now_ts.replace(day=1).normalize()
     current_month_end = current_month_start + pd.offsets.MonthEnd(0)
+    current_month_key = current_month_start.strftime("%Y-%m")
 
-    # Filter ONLY current month data
     current_month_df = f[
         (f["period"] >= current_month_start) &
         (f["period"] <= current_month_end)
     ]
 
-    # Monthly reset happens naturally here
     current_month_spend = current_month_df["amount"].sum()
 
+    # =====================================================
+    # 💰 INCOME
+    # =====================================================
+    total_income = sum(calc_income(m) for m in month_totals.index)
+    current_month_income = calc_income(current_month_key)
+
+    pct_spent = (
+        (current_month_spend / current_month_income) * 100
+        if current_month_income > 0 else 0
+    )
+
+    # =====================================================
+    # 💼 BUDGET LOGIC — MONTHLY RESET
+    # =====================================================
     TOTAL_MONTHLY_BUDGET = MONTHLY_BUDGET
 
     days_total = pd.Period(now_ts, freq="M").days_in_month
@@ -203,12 +200,11 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     daily_allowed_left = budget_left / days_left
 
     spend_velocity = (
-        current_month_spend / now_ts.day if now_ts.day > 0 else 0
+        current_month_spend / max(now_ts.day, 1)
     )
 
-
     # =====================================================
-    # 📈 MoM & WoW
+    # 📈 TRENDS (MoM & WoW)
     # =====================================================
     mom = (
         ((month_totals.iloc[-1] - month_totals.iloc[-2]) / month_totals.iloc[-2] * 100)
@@ -224,7 +220,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     )
 
     # =====================================================
-    # 🔮 FORECAST
+    # 🔮 FORECAST (CURRENT MONTH)
     # =====================================================
     forecast = get_current_month_forecast(filtered)
 
@@ -264,11 +260,13 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
         f2.metric(
             "📊 Forecast vs Budget",
             rup(forecast["forecast_total"] - TOTAL_MONTHLY_BUDGET),
-            delta="Over Budget" if forecast["forecast_total"] > TOTAL_MONTHLY_BUDGET else "Under Budget"
+            delta="Over Budget"
+            if forecast["forecast_total"] > TOTAL_MONTHLY_BUDGET
+            else "Under Budget",
         )
         f3.metric(
             "⚡ Forecast Daily Avg (Remaining)",
-            rup(forecast["remaining_forecast"] / days_left if days_left > 0 else 0)
+            rup(forecast["remaining_forecast"] / days_left if days_left > 0 else 0),
         )
     else:
         f1.metric("🤖 Forecasted Month Spend", "—")
@@ -291,7 +289,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
 
     st.metric(
         "🏆 Highest Spend Category",
-        cat_sum.idxmax() if len(cat_sum) else "-"
+        cat_sum.idxmax() if not cat_sum.empty else "-",
     )
 
     share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
