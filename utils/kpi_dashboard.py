@@ -293,14 +293,16 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     )
 
     # =====================================================
-    # 📊 Category Spend Summary Table (Enhanced)
+    # 📊 Category Spend Summary Table (Fixed)
     # =====================================================
 
-    # Base aggregation (already sorted earlier as cat_sum)
+    # Base aggregation
     share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
 
+    # Number of unique months in filtered data
+    months_count = filtered["year_month"].nunique()
+
     # Average monthly spend per category
-    months_count = source["year_month"].nunique()
     share["Avg Monthly Spend"] = (
         share["Total Spend"] / months_count if months_count > 0 else 0
     )
@@ -315,7 +317,7 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     share["Total Spend"] = share["Total Spend"].apply(rup)
     share["Avg Monthly Spend"] = share["Avg Monthly Spend"].apply(rup)
 
-    # Sort by total spend impact
+    # Sort by impact
     share = share.sort_values("Share %", ascending=False)
 
     # Display
