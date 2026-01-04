@@ -312,10 +312,28 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
         (share["Total Spend"] / total_spend * 100).round(2)
         if total_spend > 0 else 0
     )
+    # =====================================================
+    # 📊 Category Spend Summary Table (With Current Month)
+    # =====================================================
 
-    # =====================================================
-    # 🆕 Current Month Spend per Category
-    # =====================================================
+    # Base aggregation (all-time)
+    share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
+
+    # Number of unique months in filtered data
+    months_count = f["year_month"].nunique()
+
+    # Average monthly spend per category
+    share["Avg Monthly Spend"] = (
+        share["Total Spend"] / months_count if months_count > 0 else 0
+    )
+
+    # Share percentage (all-time)
+    share["Share %"] = (
+        (share["Total Spend"] / total_spend * 100).round(2)
+        if total_spend > 0 else 0
+    )
+
+    # Current month spend per category
     current_month_cat = (
         current_month_df
         .groupby("category")["amount"]
@@ -323,7 +341,6 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
         .reset_index(name="Current Month Spend")
     )
 
-    # Merge (left join keeps all categories)
     share = share.merge(
         current_month_cat,
         on="category",
@@ -332,12 +349,21 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
 
     share["Current Month Spend"] = share["Current Month Spend"].fillna(0)
 
-    # =====================================================
     # Formatting
-    # =====================================================
     share["Total Spend"] = share["Total Spend"].apply(rup)
     share["Avg Monthly Spend"] = share["Avg Monthly Spend"].apply(rup)
     share["Current Month Spend"] = share["Current Month Spend"].apply(rup)
+
+    # 🔥 REORDER COLUMNS (Share % LAST)
+    share = share[
+        [
+            "category",
+            "Total Spend",
+            "Avg Monthly Spend",
+            "Current Month Spend",
+            "Share %"
+        ]
+    ]
 
     # Sort by impact
     share = share.sort_values("Share %", ascending=False)
