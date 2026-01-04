@@ -293,30 +293,51 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     )
 
     # =====================================================
-    # 📊 Category Spend Summary Table (Fixed)
+    # 📊 Category Spend Summary Table (With Current Month)
     # =====================================================
 
-    # Base aggregation
+    # Base aggregation (all-time)
     share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
 
     # Number of unique months in filtered data
     months_count = f["year_month"].nunique()
-
 
     # Average monthly spend per category
     share["Avg Monthly Spend"] = (
         share["Total Spend"] / months_count if months_count > 0 else 0
     )
 
-    # Share percentage
+    # Share percentage (all-time)
     share["Share %"] = (
         (share["Total Spend"] / total_spend * 100).round(2)
         if total_spend > 0 else 0
     )
 
-    # Currency formatting
+    # =====================================================
+    # 🆕 Current Month Spend per Category
+    # =====================================================
+    current_month_cat = (
+        current_month_df
+        .groupby("category")["amount"]
+        .sum()
+        .reset_index(name="Current Month Spend")
+    )
+
+    # Merge (left join keeps all categories)
+    share = share.merge(
+        current_month_cat,
+        on="category",
+        how="left"
+    )
+
+    share["Current Month Spend"] = share["Current Month Spend"].fillna(0)
+
+    # =====================================================
+    # Formatting
+    # =====================================================
     share["Total Spend"] = share["Total Spend"].apply(rup)
     share["Avg Monthly Spend"] = share["Avg Monthly Spend"].apply(rup)
+    share["Current Month Spend"] = share["Current Month Spend"].apply(rup)
 
     # Sort by impact
     share = share.sort_values("Share %", ascending=False)
@@ -327,6 +348,5 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
         use_container_width=True,
         hide_index=True
     )
-
 
     st.success("KPI Dashboard Loaded ✅")
