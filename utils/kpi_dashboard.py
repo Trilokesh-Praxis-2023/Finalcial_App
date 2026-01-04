@@ -300,7 +300,8 @@ def render_kpis(filtered: pd.DataFrame, df: pd.DataFrame, MONTHLY_BUDGET: float)
     share = cat_sum.reset_index().rename(columns={"amount": "Total Spend"})
 
     # Number of unique months in filtered data
-    months_count = filtered["year_month"].nunique()
+    months_count = f["year_month"].nunique()
+
 
     # Average monthly spend per category
     share["Avg Monthly Spend"] = (
