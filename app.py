@@ -168,12 +168,4 @@ if st.button("🗑 Delete"):
     st.success("Deleted Successfully")
     refresh()
 
-# -----------------------------------------------------------
-# FORECASTING
-# -----------------------------------------------------------
-st.markdown("<h2 class='page-title'>🔮 AI Forecasting Module</h2>", unsafe_allow_html=True)
 
-if not filtered.empty:
-    forecasting_ui(filtered)
-else:
-    st.warning("⚠ No data available for forecasting.")
