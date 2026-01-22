@@ -86,9 +86,17 @@ with st.expander("Add Expense Form"):
 
     with st.form("expense_form", clear_on_submit=True):
         d = st.date_input("📅 Date")
-        cat = st.selectbox("📂 Category", sorted(df.category.unique()))
+
+        # ✅ Default Category = Food
+        categories = sorted(df.category.unique())
+        default_cat_index = categories.index("Food") if "Food" in categories else 0
+        cat = st.selectbox("📂 Category", categories, index=default_cat_index)
+
         acc = st.text_input("🏦 Account / UPI / Card", value="UPI")
-        amt = st.number_input("💰 Amount", min_value=0.0, value=10.0)
+
+        # ✅ Default Amount = 11
+        amt = st.number_input("💰 Amount", min_value=0.0, value=11.0)
+
         submit = st.form_submit_button("💾 Save Entry")
 
     if submit:
