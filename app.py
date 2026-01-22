@@ -87,27 +87,46 @@ with st.expander("Add Expense Form"):
     with st.form("expense_form", clear_on_submit=True):
         d = st.date_input("📅 Date")
 
-        # ✅ Default Category = Food
+        # Default Category = Food
         categories = sorted(df.category.unique())
         default_cat_index = categories.index("Food") if "Food" in categories else 0
         cat = st.selectbox("📂 Category", categories, index=default_cat_index)
 
         acc = st.text_input("🏦 Account / UPI / Card", value="UPI")
 
-        # ✅ Default Amount = 11
+        # Default Amount = 11
         amt = st.number_input("💰 Amount", min_value=0.0, value=11.0)
 
         submit = st.form_submit_button("💾 Save Entry")
 
     if submit:
+        dt = pd.to_datetime(d)
+
+        # ---------------- Derived columns ----------------
+        year = dt.year
+        month = dt.strftime("%B")
+        year_month = dt.strftime("%Y-%m")
+
+        last_total = (
+            df["running_total"].iloc[-1]
+            if "running_total" in df.columns and not df.empty
+            else 0
+        )
+        running_total = last_total + amt
+
         new_row = pd.DataFrame([{
-            "period": pd.to_datetime(d),
+            "period": dt,
             "accounts": acc,
             "category": cat,
-            "amount": amt
+            "amount": amt,
+            "year": year,
+            "month": month,
+            "year_month": year_month,
+            "running_total": running_total
         }])
 
         df_new = pd.concat([df, new_row], ignore_index=True)
+
         write_csv(df_new, f"Added ₹{amt} in {cat}")
         st.success(f"Added ₹{amt} to {cat}")
         st.balloons()
