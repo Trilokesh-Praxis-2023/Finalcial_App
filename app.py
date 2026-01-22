@@ -137,12 +137,6 @@ with st.expander("Add Expense Form"):
         refresh()
 
 # -----------------------------------------------------------
-# KPI DASHBOARD
-# -----------------------------------------------------------
-render_kpis(filtered=filtered, df=df, MONTHLY_BUDGET=20000)
-render_kpi_suite(filtered, get_income)
-
-# -----------------------------------------------------------
 # TRANSACTIONS TABLE
 # -----------------------------------------------------------
 st.markdown("<h3>📄 Transactions</h3>", unsafe_allow_html=True)
