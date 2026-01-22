@@ -54,6 +54,9 @@ def refresh():
 
 df = load_data()
 
+# ✅ Always keep latest transaction on top
+df = df.sort_values("period", ascending=False).reset_index(drop=True)
+
 # -----------------------------------------------------------
 # SIDEBAR FILTERS
 # -----------------------------------------------------------
@@ -107,8 +110,9 @@ with st.expander("Add Expense Form"):
         month = dt.strftime("%B")
         year_month = dt.strftime("%Y-%m")
 
+        # ✅ Order-proof running total
         last_total = (
-            df["running_total"].iloc[-1]
+            df["running_total"].max()
             if "running_total" in df.columns and not df.empty
             else 0
         )
