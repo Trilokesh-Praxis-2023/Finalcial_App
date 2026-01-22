@@ -1,6 +1,14 @@
 import streamlit as st
 import pandas as pd
 from utils.github_storage import read_csv
+import os
+
+# Load global CSS
+css_path = ".streamlit/styles.css"
+if os.path.exists(css_path):
+    with open(css_path) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
 
 st.set_page_config(layout="wide")
 st.title("🧠 Spending Behavior Analysis")
