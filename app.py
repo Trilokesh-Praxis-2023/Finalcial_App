@@ -8,30 +8,56 @@ from utils.kpi_dashboard import render_kpis, get_income
 from utils.kpi_drilldown import render_kpi_suite
 from utils.forecasting_ml import forecasting_ui
 
+# -----------------------------------------------------------
+# CONFIG
+# -----------------------------------------------------------
 load_dotenv()
 
-st.set_page_config(page_title="💰 Finance Analytics", page_icon="📊", layout="wide")
+st.set_page_config(
+    page_title="💰 Finance Analytics",
+    page_icon="📊",
+    layout="wide"
+)
 
-st.markdown("<h1>💰 Personal Finance Intelligence Dashboard</h1>", unsafe_allow_html=True)
+# -----------------------------------------------------------
+# LOAD CUSTOM CSS
+# -----------------------------------------------------------
+css_path = ".streamlit/styles.css"
+if os.path.exists(css_path):
+    with open(css_path) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
+st.markdown("<h1 class='title-main'>💰 Personal Finance Intelligence Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("<h5 class='subtitle'>Track • Analyze • Forecast • Optimize</h5>", unsafe_allow_html=True)
+
+# -----------------------------------------------------------
+# PASSWORD
+# -----------------------------------------------------------
 APP_PASSWORD = os.getenv("APP_PASSWORD")
 password = st.sidebar.text_input("🔑 Enter Access Password", type="password")
+
 if APP_PASSWORD and password != APP_PASSWORD:
     st.stop()
+
+st.success("🔓 Access Granted")
 
 # -----------------------------------------------------------
 # LOAD DATA FROM GITHUB CSV
 # -----------------------------------------------------------
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def load_data():
     return read_csv()
+
+def refresh():
+    load_data.clear()
+    st.rerun()
 
 df = load_data()
 
 # -----------------------------------------------------------
-# FILTERS
+# SIDEBAR FILTERS
 # -----------------------------------------------------------
-st.sidebar.markdown("### 🔍 Filters")
+st.sidebar.markdown("### 🔍 Smart Filters")
 
 f_year  = st.sidebar.multiselect("Year", sorted(df.year.unique()))
 f_month = st.sidebar.multiselect("Month", sorted(df.year_month.unique()))
@@ -51,65 +77,78 @@ if f_acc:
 # -----------------------------------------------------------
 # ADD EXPENSE
 # -----------------------------------------------------------
-st.markdown("### ➕ Add Expense")
+st.markdown("<h3>➕ Add Expense Entry</h3>", unsafe_allow_html=True)
 
-with st.form("expense_form", clear_on_submit=True):
-    d = st.date_input("Date")
-    cat = st.selectbox("Category", df.category.unique())
-    acc = st.text_input("Account", value="UPI")
-    amt = st.number_input("Amount", min_value=0.0, value=10.0)
-    submit = st.form_submit_button("Save")
+with st.expander("Add Expense Form"):
 
-if submit:
-    new_row = pd.DataFrame([{
-        "period": pd.to_datetime(d),
-        "accounts": acc,
-        "category": cat,
-        "amount": amt
-    }])
+    if st.button("🔄 Refresh data"):
+        refresh()
 
-    df_new = pd.concat([df, new_row], ignore_index=True)
-    write_csv(df_new, f"Added ₹{amt} in {cat}")
-    load_data.clear()
-    st.success("Added successfully")
-    st.rerun()
+    with st.form("expense_form", clear_on_submit=True):
+        d = st.date_input("📅 Date")
+        cat = st.selectbox("📂 Category", sorted(df.category.unique()))
+        acc = st.text_input("🏦 Account / UPI / Card", value="UPI")
+        amt = st.number_input("💰 Amount", min_value=0.0, value=10.0)
+        submit = st.form_submit_button("💾 Save Entry")
+
+    if submit:
+        new_row = pd.DataFrame([{
+            "period": pd.to_datetime(d),
+            "accounts": acc,
+            "category": cat,
+            "amount": amt
+        }])
+
+        df_new = pd.concat([df, new_row], ignore_index=True)
+        write_csv(df_new, f"Added ₹{amt} in {cat}")
+        st.success(f"Added ₹{amt} to {cat}")
+        st.balloons()
+        refresh()
 
 # -----------------------------------------------------------
-# KPIs
+# KPI DASHBOARD
 # -----------------------------------------------------------
 render_kpis(filtered=filtered, df=df, MONTHLY_BUDGET=20000)
 render_kpi_suite(filtered, get_income)
 
 # -----------------------------------------------------------
-# TABLE
+# TRANSACTIONS TABLE
 # -----------------------------------------------------------
-st.markdown("### 📄 Transactions")
+st.markdown("<h3>📄 Transactions</h3>", unsafe_allow_html=True)
+
 df_show = filtered.copy()
 df_show["period"] = df_show["period"].dt.date
-st.dataframe(df_show.sort_values("period", ascending=False), height=260)
+df_show = df_show.sort_values("period", ascending=False)
+
+st.dataframe(df_show, use_container_width=True, height=260)
+
+csv = df_show.to_csv(index=False).encode()
+st.download_button("📥 Export CSV", csv, "finance_data.csv")
 
 # -----------------------------------------------------------
-# DELETE
+# DELETE TRANSACTION
 # -----------------------------------------------------------
-st.markdown("### 🗑 Delete Transaction")
+st.markdown("<h3>🗑 Delete Transaction</h3>", unsafe_allow_html=True)
 
 df_del = df.copy().reset_index()
 df_del["period"] = df_del["period"].dt.date
 
-st.dataframe(df_del[["index","period","accounts","category","amount"]])
+st.dataframe(df_del[["index", "period", "accounts", "category", "amount"]], height=220)
 
-del_id = st.number_input("Row ID", min_value=0)
+del_id = st.number_input("Row ID to Delete", min_value=0, step=1)
 
-if st.button("Delete"):
+if st.button("🗑 Delete"):
     df_new = df_del.drop(index=del_id).drop(columns=["index"])
     write_csv(df_new, f"Deleted row {del_id}")
-    load_data.clear()
-    st.success("Deleted")
-    st.rerun()
+    st.success("Deleted Successfully")
+    refresh()
 
 # -----------------------------------------------------------
-# FORECAST
+# FORECASTING
 # -----------------------------------------------------------
-st.markdown("## 🔮 Forecasting")
+st.markdown("<h2 class='page-title'>🔮 AI Forecasting Module</h2>", unsafe_allow_html=True)
+
 if not filtered.empty:
     forecasting_ui(filtered)
+else:
+    st.warning("⚠ No data available for forecasting.")
