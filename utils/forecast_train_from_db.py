@@ -1,7 +1,6 @@
 # ============================================================
-# 📁 forecast_train_from_db.py
-# Load finance_data from PostgreSQL → Train & Save ML Models
-# (STABLE, NO TREND LEAKAGE)
+# 📁 forecast_train_from_github.py
+# Load finance_data from GitHub CSV → Train & Save ML Models
 # ============================================================
 
 import os
@@ -9,10 +8,10 @@ import joblib
 import pandas as pd
 import xgboost as xgb
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 
+from utils.github_storage import read_csv   # ✅ IMPORTANT
 
 # ============================================================
 # GLOBAL CONFIG
@@ -26,22 +25,11 @@ load_dotenv()
 
 
 # ============================================================
-# DATABASE CONNECTION
-# ============================================================
-DATABASE_URL = os.getenv("DATABASE_URL") or (
-    f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-)
-
-engine = create_engine(DATABASE_URL)
-
-
-# ============================================================
-# 📥 LOAD DATA
+# 📥 LOAD DATA FROM GITHUB CSV
 # ============================================================
 def load_data():
     try:
-        df = pd.read_sql("SELECT * FROM finance_data", engine)
+        df = read_csv()   # ✅ FROM GITHUB
         df.columns = df.columns.str.lower()
 
         df["period"] = pd.to_datetime(df["period"], errors="coerce")
@@ -50,11 +38,11 @@ def load_data():
 
         df = df.dropna(subset=["period"])
 
-        print(f"✔ Loaded {len(df)} rows from finance_data")
+        print(f"✔ Loaded {len(df)} rows from GitHub finance_data")
         return df
 
     except Exception as e:
-        print(f"❌ Error loading finance_data: {e}")
+        print(f"❌ Error loading GitHub data: {e}")
         return pd.DataFrame()
 
 
@@ -67,7 +55,7 @@ def save_model(model, path):
 
 
 # ============================================================
-# 📆 TRAIN DAILY MODEL (FIXED & STABLE)
+# 📆 TRAIN DAILY MODEL
 # ============================================================
 def train_daily_model(data):
 
@@ -77,20 +65,16 @@ def train_daily_model(data):
         print("⚠ Need at least 10 days of data to train Daily Model.")
         return
 
-    # ---------------- FEATURES ----------------
     daily["day"]   = daily["period"].dt.day
     daily["dow"]   = daily["period"].dt.dayofweek
     daily["month"] = daily["period"].dt.month
 
-    # ---------------- TARGET ----------------
-    # Cap extreme outliers (party / one-time spends)
     cap = daily["amount"].quantile(0.95)
     daily["amount_capped"] = daily["amount"].clip(0, cap)
 
     X = daily[["day", "dow", "month"]]
     y = daily["amount_capped"]
 
-    # ---------------- SPLIT ----------------
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, shuffle=False
     )
@@ -107,7 +91,6 @@ def train_daily_model(data):
         random_state=42
     )
 
-
     model.fit(X_train, y_train)
 
     preds = model.predict(X_test)
@@ -118,7 +101,7 @@ def train_daily_model(data):
 
 
 # ============================================================
-# 📅 TRAIN MONTHLY MODEL (TOTAL SPEND)
+# 📅 TRAIN MONTHLY MODEL
 # ============================================================
 def train_monthly_model(data):
 
@@ -133,7 +116,7 @@ def train_monthly_model(data):
 
     monthly["month"] = monthly["year_month"].dt.month
     monthly["year"]  = monthly["year_month"].dt.year
-    monthly["t"]     = range(len(monthly))  # OK at monthly granularity
+    monthly["t"]     = range(len(monthly))
 
     X = monthly[["month", "year", "t"]]
     y = monthly["amount"]
@@ -168,7 +151,7 @@ def train_monthly_model(data):
 # ============================================================
 if __name__ == "__main__":
 
-    print("🔄 Loading finance_data...")
+    print("🔄 Loading finance_data from GitHub...")
     df = load_data()
 
     if df.empty:
