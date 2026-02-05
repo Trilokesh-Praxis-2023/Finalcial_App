@@ -22,19 +22,43 @@ df["period"] = pd.to_datetime(df["period"])
 df["year_month"] = df["period"].dt.to_period("M").astype(str)
 
 # -----------------------------------------------------------
-# SIDEBAR EXCLUDE CATEGORY
+# SIDEBAR FILTERS (compact)
 # -----------------------------------------------------------
-exclude_cat = st.sidebar.multiselect(
-    "",
-    sorted(df["category"].unique()),
-    placeholder="Filter out category..."
-)
+st.sidebar.markdown("### 🔍 Filters")
+
+c1, c2 = st.sidebar.columns(2)
+
+with c1:
+    f_year = st.multiselect("Year", sorted(df.year.unique()))
+    f_acc  = st.multiselect("Account", sorted(df.accounts.unique()))
+
+with c2:
+    f_month = st.multiselect("Month", sorted(df.year_month.unique()))
+    exclude_cat = st.multiselect(
+        "",
+        sorted(df.category.unique()),
+        placeholder="Exclude category..."
+    )
+
+# -----------------------------------------------------------
+# APPLY FILTERS
+# -----------------------------------------------------------
+filtered = df.copy()
+
+if f_year:
+    filtered = filtered[filtered.year.isin(f_year)]
+
+if f_month:
+    filtered = filtered[filtered.year_month.isin(f_month)]
+
+if f_acc:
+    filtered = filtered[filtered.accounts.isin(f_acc)]
 
 if exclude_cat:
-    df = df[~df["category"].isin(exclude_cat)]
+    filtered = filtered[~filtered.category.isin(exclude_cat)]
 
-if df.empty:
-    st.warning("No data available after applying filter.")
+if filtered.empty:
+    st.warning("No data available after applying filters.")
     st.stop()
 
 st.header("📊 Category-wise Monthly Deep Dive")
@@ -42,11 +66,11 @@ st.header("📊 Category-wise Monthly Deep Dive")
 # -----------------------------------------------------------
 # LOOP PER CATEGORY
 # -----------------------------------------------------------
-for cat in sorted(df["category"].unique()):
+for cat in sorted(filtered["category"].unique()):
     st.divider()
     st.subheader(f"📂 {cat}")
 
-    dcat = df[df["category"] == cat].copy()
+    dcat = filtered[filtered["category"] == cat].copy()
     monthly = dcat.groupby("year_month")["amount"].sum()
 
     if len(monthly) < 2:
