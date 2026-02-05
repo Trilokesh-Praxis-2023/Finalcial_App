@@ -53,8 +53,7 @@ def refresh():
     st.rerun()
 
 df = load_data()
-
-# ✅ Always keep latest transaction on top
+df["period"] = pd.to_datetime(df["period"])
 df = df.sort_values("period", ascending=False).reset_index(drop=True)
 
 # -----------------------------------------------------------
@@ -64,18 +63,34 @@ st.sidebar.markdown("### 🔍 Smart Filters")
 
 f_year  = st.sidebar.multiselect("Year", sorted(df.year.unique()))
 f_month = st.sidebar.multiselect("Month", sorted(df.year_month.unique()))
-f_cat   = st.sidebar.multiselect("Category", sorted(df.category.unique()))
 f_acc   = st.sidebar.multiselect("Account", sorted(df.accounts.unique()))
 
+# ------------------ EXCLUDE CATEGORY (Power BI style) ------------------
+st.sidebar.markdown("### 🚫 Exclude Category")
+
+all_categories = sorted(df.category.unique())
+exclude_cat = st.sidebar.multiselect(
+    "Select category to EXCLUDE",
+    all_categories
+)
+
+# -----------------------------------------------------------
+# APPLY FILTERS
+# -----------------------------------------------------------
 filtered = df.copy()
+
 if f_year:
     filtered = filtered[filtered.year.isin(f_year)]
+
 if f_month:
     filtered = filtered[filtered.year_month.isin(f_month)]
-if f_cat:
-    filtered = filtered[filtered.category.isin(f_cat)]
+
 if f_acc:
     filtered = filtered[filtered.accounts.isin(f_acc)]
+
+# 👉 Inverse category filter
+if exclude_cat:
+    filtered = filtered[~filtered.category.isin(exclude_cat)]
 
 # -----------------------------------------------------------
 # ADD EXPENSE
@@ -90,14 +105,11 @@ with st.expander("Add Expense Form"):
     with st.form("expense_form", clear_on_submit=True):
         d = st.date_input("📅 Date")
 
-        # Default Category = Food
         categories = sorted(df.category.unique())
         default_cat_index = categories.index("Food") if "Food" in categories else 0
         cat = st.selectbox("📂 Category", categories, index=default_cat_index)
 
         acc = st.text_input("🏦 Account / UPI / Card", value="UPI")
-
-        # Default Amount = 11
         amt = st.number_input("💰 Amount", min_value=0.0, value=11.0)
 
         submit = st.form_submit_button("💾 Save Entry")
@@ -105,12 +117,10 @@ with st.expander("Add Expense Form"):
     if submit:
         dt = pd.to_datetime(d)
 
-        # ---------------- Derived columns ----------------
         year = dt.year
         month = dt.strftime("%B")
         year_month = dt.strftime("%Y-%m")
 
-        # ✅ Order-proof running total
         last_total = (
             df["running_total"].max()
             if "running_total" in df.columns and not df.empty
@@ -168,4 +178,9 @@ if st.button("🗑 Delete"):
     st.success("Deleted Successfully")
     refresh()
 
-
+# -----------------------------------------------------------
+# KPIs + DRILLDOWN + FORECAST
+# -----------------------------------------------------------
+render_kpis(filtered=filtered, df=df, MONTHLY_BUDGET=20000)
+render_kpi_suite(filtered, get_income)
+forecasting_ui(filtered)
