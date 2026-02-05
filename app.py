@@ -70,9 +70,11 @@ st.sidebar.markdown("### 🚫 Exclude Category")
 
 all_categories = sorted(df.category.unique())
 exclude_cat = st.sidebar.multiselect(
-    "Select category to EXCLUDE",
-    all_categories
+    label="",
+    options=all_categories,
+    placeholder="Filter out category..."
 )
+
 
 # -----------------------------------------------------------
 # APPLY FILTERS
