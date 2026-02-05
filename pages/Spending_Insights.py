@@ -4,7 +4,7 @@ from utils.github_storage import read_csv
 import os
 
 # -----------------------------------------------------------
-# LOAD GLOBAL CSS (important for multipage)
+# LOAD CSS
 # -----------------------------------------------------------
 css_path = ".streamlit/styles.css"
 if os.path.exists(css_path):
@@ -19,95 +19,103 @@ st.title("📊 Spending Insights")
 # -----------------------------------------------------------
 df = read_csv()
 df["period"] = pd.to_datetime(df["period"])
+df["year_month"] = df["period"].dt.to_period("M").astype(str)
 
 # -----------------------------------------------------------
-# TOP CATEGORIES
+# SIDEBAR FILTERS (compact)
 # -----------------------------------------------------------
-st.subheader("🏆 Top Categories by Total Spend")
-cat_spend = (
-    df.groupby("category")["amount"]
-    .sum()
-    .sort_values(ascending=False)
-)
-st.bar_chart(cat_spend)
+st.sidebar.markdown("### 🔍 Filters")
+
+c1, c2 = st.sidebar.columns(2)
+
+with c1:
+    f_year = st.multiselect("Year", sorted(df.year.unique()))
+    f_acc  = st.multiselect("Account", sorted(df.accounts.unique()))
+
+with c2:
+    f_month = st.multiselect("Month", sorted(df.year_month.unique()))
+    exclude_cat = st.multiselect(
+        "",
+        sorted(df.category.unique()),
+        placeholder="Exclude category..."
+    )
 
 # -----------------------------------------------------------
-# DAILY TREND
+# APPLY FILTERS
 # -----------------------------------------------------------
-st.subheader("📈 Daily Spending Trend")
-daily = df.groupby("period")["amount"].sum()
-st.line_chart(daily)
+filtered = df.copy()
+
+if f_year:
+    filtered = filtered[filtered.year.isin(f_year)]
+
+if f_month:
+    filtered = filtered[filtered.year_month.isin(f_month)]
+
+if f_acc:
+    filtered = filtered[filtered.accounts.isin(f_acc)]
+
+if exclude_cat:
+    filtered = filtered[~filtered.category.isin(exclude_cat)]
+
+if filtered.empty:
+    st.warning("No data after filters.")
+    st.stop()
 
 # -----------------------------------------------------------
-# AVG DAILY SPEND
+# KPI STRIP
 # -----------------------------------------------------------
-st.metric("💰 Average Daily Spend", f"₹{daily.mean():.2f}")
+daily = filtered.groupby("period")["amount"].sum()
+total = filtered["amount"].sum()
 
-# -----------------------------------------------------------
-# MOST EXPENSIVE DAY
-# -----------------------------------------------------------
-max_day = daily.idxmax()
-st.write(f"💸 Most expensive day: **{max_day.date()}** — ₹{daily.max():.2f}")
-
-# -----------------------------------------------------------
-# WEEKDAY VS WEEKEND
-# -----------------------------------------------------------
-df["dow"] = df["period"].dt.dayofweek
-df["type"] = df["dow"].apply(lambda x: "Weekend" if x >= 5 else "Weekday")
-
-st.subheader("📅 Weekday vs Weekend Spend (Average)")
-ww = df.groupby("type")["amount"].mean()
-st.bar_chart(ww)
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("💰 Total Spend", f"₹{total:,.0f}")
+k2.metric("📆 Avg Daily Spend", f"₹{daily.mean():.0f}")
+k3.metric("💸 Highest Day", f"{daily.idxmax().date()}", f"₹{daily.max():.0f}")
+k4.metric("🧾 Transactions", len(filtered))
 
 # -----------------------------------------------------------
-# CATEGORY CONTRIBUTION %
+# TOP CATEGORIES + DAILY TREND
 # -----------------------------------------------------------
-st.subheader("📂 Category Contribution (%)")
+c1, c2 = st.columns(2)
 
-total_spend = df["amount"].sum()
-cat_pct = (
-    df.groupby("category")["amount"]
-    .sum()
-    .sort_values(ascending=False) / total_spend * 100
-)
+with c1:
+    st.subheader("🏆 Top Categories")
+    cat_spend = filtered.groupby("category")["amount"].sum().sort_values(ascending=False)
+    st.bar_chart(cat_spend)
 
-st.dataframe(cat_pct.round(2).astype(str) + " %")
-
-# -----------------------------------------------------------
-# TOP 5 HIGHEST TRANSACTIONS
-# -----------------------------------------------------------
-st.subheader("💎 Top 5 Highest Transactions")
-
-top_txn = df.sort_values("amount", ascending=False).head(5)[
-    ["period", "category", "accounts", "amount"]
-]
-st.dataframe(top_txn)
+with c2:
+    st.subheader("📈 Daily Spending Trend")
+    st.line_chart(daily)
 
 # -----------------------------------------------------------
-# HEATMAP DAY vs MONTH
+# WEEKDAY vs WEEKEND + CATEGORY %
 # -----------------------------------------------------------
-st.subheader("🗓 Spending Pattern (Day vs Month)")
+filtered["dow"] = filtered["period"].dt.dayofweek
+filtered["type"] = filtered["dow"].apply(lambda x: "Weekend" if x >= 5 else "Weekday")
 
-df["day"] = df["period"].dt.day
-df["month_name"] = df["period"].dt.month_name()
+c3, c4 = st.columns(2)
 
-heat = df.pivot_table(
-    values="amount",
-    index="day",
-    columns="month_name",
-    aggfunc="sum",
-    fill_value=0
-)
+with c3:
+    st.subheader("📅 Weekday vs Weekend (Avg)")
+    ww = filtered.groupby("type")["amount"].mean()
+    st.bar_chart(ww)
 
-st.dataframe(heat)
+with c4:
+    st.subheader("📂 Category Contribution %")
+    total_spend = filtered["amount"].sum()
+    cat_pct = (
+        filtered.groupby("category")["amount"]
+        .sum()
+        .sort_values(ascending=False) / total_spend * 100
+    )
+    st.bar_chart(cat_pct)
 
 # -----------------------------------------------------------
 # MONTHLY TREND + MOVING AVERAGE
 # -----------------------------------------------------------
-st.subheader("📈 Monthly Spend Trend (with smoothing)")
+st.subheader("📈 Monthly Trend with Smoothing")
 
-df["year_month"] = df["period"].dt.to_period("M").astype(str)
-monthly = df.groupby("year_month")["amount"].sum()
+monthly = filtered.groupby("year_month")["amount"].sum()
 ma = monthly.rolling(3).mean()
 
 st.line_chart(pd.DataFrame({
@@ -116,29 +124,50 @@ st.line_chart(pd.DataFrame({
 }))
 
 # -----------------------------------------------------------
-# SPEND CONSISTENCY SCORE
+# HEATMAP + CONSISTENCY
 # -----------------------------------------------------------
-st.subheader("🎯 Spend Consistency Score")
+c5, c6 = st.columns(2)
 
-std = daily.std()
-mean = daily.mean()
-score = max(0, 100 - (std / mean) * 100)
+with c5:
+    st.subheader("🗓 Day vs Month Pattern")
+    filtered["day"] = filtered["period"].dt.day
+    filtered["month_name"] = filtered["period"].dt.month_name()
 
-st.metric("Consistency Score", f"{score:.1f} / 100")
-st.caption("Higher score = more predictable spending behavior")
+    heat = filtered.pivot_table(
+        values="amount",
+        index="day",
+        columns="month_name",
+        aggfunc="sum",
+        fill_value=0
+    )
+    st.dataframe(heat, height=300)
+
+with c6:
+    st.subheader("🎯 Spend Consistency")
+    std = daily.std()
+    mean = daily.mean()
+    score = max(0, 100 - (std / mean) * 100)
+    st.metric("Consistency Score", f"{score:.1f} / 100")
 
 # -----------------------------------------------------------
-# MOST EXPENSIVE CATEGORY PER MONTH
+# TOP TRANSACTIONS + BEST CATEGORY PER MONTH
 # -----------------------------------------------------------
-st.subheader("🏅 Most Expensive Category Each Month")
+c7, c8 = st.columns(2)
 
-monthly_cat = (
-    df.groupby(["year_month", "category"])["amount"]
-    .sum()
-    .reset_index()
-)
+with c7:
+    st.subheader("💎 Top 5 Transactions")
+    top_txn = filtered.sort_values("amount", ascending=False).head(5)[
+        ["period", "category", "accounts", "amount"]
+    ]
+    st.dataframe(top_txn, height=250)
 
-idx = monthly_cat.groupby("year_month")["amount"].idxmax()
-best_cat_month = monthly_cat.loc[idx]
-
-st.dataframe(best_cat_month.sort_values("year_month"))
+with c8:
+    st.subheader("🏅 Most Expensive Category Each Month")
+    monthly_cat = (
+        filtered.groupby(["year_month", "category"])["amount"]
+        .sum()
+        .reset_index()
+    )
+    idx = monthly_cat.groupby("year_month")["amount"].idxmax()
+    best_cat_month = monthly_cat.loc[idx]
+    st.dataframe(best_cat_month.sort_values("year_month"), height=250)
