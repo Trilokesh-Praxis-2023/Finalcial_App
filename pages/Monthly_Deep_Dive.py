@@ -12,7 +12,7 @@ if os.path.exists(css_path):
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 st.set_page_config(layout="wide")
-st.title("📅 Monthly Deep Dive")
+st.title("📅 Monthly Deep Dive — Category Analytics (Excluding Rent)")
 
 # -----------------------------------------------------------
 # LOAD DATA
@@ -22,110 +22,80 @@ df["period"] = pd.to_datetime(df["period"])
 df["year_month"] = df["period"].dt.to_period("M").astype(str)
 
 # -----------------------------------------------------------
-# MONTHLY TOTAL SPEND
+# REMOVE RENT
 # -----------------------------------------------------------
-st.subheader("📊 Monthly Total Spend")
-monthly = df.groupby("year_month")["amount"].sum()
-st.line_chart(monthly)
+df = df[df["category"].str.lower() != "rent"].copy()
+
+if df.empty:
+    st.warning("No data available after excluding Rent.")
+    st.stop()
+
+categories = sorted(df["category"].unique())
+
+st.header("📊 Category-wise Monthly Deep Dive")
 
 # -----------------------------------------------------------
-# BEST / WORST MONTH
+# LOOP PER CATEGORY
 # -----------------------------------------------------------
-best_month = monthly.idxmin()
-worst_month = monthly.idxmax()
+for cat in categories:
+    st.divider()
+    st.subheader(f"📂 Category: {cat}")
 
-st.success(f"🟢 Best Month (lowest spend): **{best_month}** — ₹{monthly.min():.2f}")
-st.error(f"🔴 Worst Month (highest spend): **{worst_month}** — ₹{monthly.max():.2f}")
+    dcat = df[df["category"] == cat].copy()
 
-# -----------------------------------------------------------
-# AVERAGE SPEND PER DAY IN MONTH
-# -----------------------------------------------------------
-st.subheader("📆 Average Daily Spend per Month")
+    monthly = dcat.groupby("year_month")["amount"].sum()
 
-days_in_month = df.groupby("year_month")["period"].nunique()
-avg_per_day = (monthly / days_in_month).round(2)
+    if len(monthly) < 2:
+        st.info("Not enough data for meaningful monthly analysis.")
+        continue
 
-st.bar_chart(avg_per_day)
+    # -------------------------------------------------------
+    # Monthly Trend
+    # -------------------------------------------------------
+    st.markdown("### 📈 Monthly Spend Trend")
+    st.line_chart(monthly)
 
-# -----------------------------------------------------------
-# MONTH OVER MONTH GROWTH %
-# -----------------------------------------------------------
-st.subheader("📈 Month-over-Month Growth %")
+    # -------------------------------------------------------
+    # Best / Worst Month
+    # -------------------------------------------------------
+    best_month = monthly.idxmin()
+    worst_month = monthly.idxmax()
 
-mom = monthly.pct_change() * 100
-st.line_chart(mom)
+    st.success(f"🟢 Best Month: **{best_month}** — ₹{monthly.min():.2f}")
+    st.error(f"🔴 Worst Month: **{worst_month}** — ₹{monthly.max():.2f}")
 
-# -----------------------------------------------------------
-# CATEGORY BREAKDOWN PER MONTH
-# -----------------------------------------------------------
-st.subheader("📂 Category Breakdown by Month")
+    # -------------------------------------------------------
+    # Avg per day
+    # -------------------------------------------------------
+    st.markdown("### 📆 Average Daily Spend")
+    days = dcat.groupby("year_month")["period"].nunique()
+    avg_per_day = (monthly / days).round(2)
+    st.bar_chart(avg_per_day)
 
-pivot = df.pivot_table(
-    values="amount",
-    index="year_month",
-    columns="category",
-    aggfunc="sum",
-    fill_value=0
-)
-st.dataframe(pivot)
+    # -------------------------------------------------------
+    # MoM Growth
+    # -------------------------------------------------------
+    st.markdown("### 📈 Month-over-Month Growth %")
+    mom = (monthly.pct_change() * 100).round(2)
+    st.line_chart(mom)
 
-# -----------------------------------------------------------
-# DOMINANT CATEGORY EACH MONTH
-# -----------------------------------------------------------
-st.subheader("🏆 Dominant Category Each Month")
+    # -------------------------------------------------------
+    # Consistency Score
+    # -------------------------------------------------------
+    score = max(0, 100 - (monthly.std() / monthly.mean()) * 100)
+    st.metric("🎯 Consistency Score", f"{score:.1f} / 100")
 
-idx = pivot.idxmax(axis=1)
-dom_cat = pd.DataFrame({
-    "year_month": idx.index,
-    "dominant_category": idx.values
-})
-st.dataframe(dom_cat)
+    # -------------------------------------------------------
+    # Running Total Trend
+    # -------------------------------------------------------
+    st.markdown("### 📈 Running Total")
+    dcat_sorted = dcat.sort_values("period")
+    dcat_sorted["running_total"] = dcat_sorted["amount"].cumsum()
+    st.line_chart(dcat_sorted.set_index("period")["running_total"])
 
-# -----------------------------------------------------------
-# BUDGET VS ACTUAL (Assume 20k)
-# -----------------------------------------------------------
-st.subheader("💰 Budget vs Actual Spend")
-
-BUDGET = 20000
-budget_compare = pd.DataFrame({
-    "Actual Spend": monthly,
-    "Budget": BUDGET
-})
-st.line_chart(budget_compare)
-
-# -----------------------------------------------------------
-# SAVINGS POTENTIAL INSIGHT
-# -----------------------------------------------------------
-st.subheader("💡 Savings Potential Insight")
-
-over_budget_months = monthly[monthly > BUDGET]
-if not over_budget_months.empty:
-    excess = (over_budget_months - BUDGET).sum()
-    st.warning(f"You overspent ₹{excess:,.0f} across {len(over_budget_months)} months.")
-else:
-    st.success("Great discipline! You stayed within budget every month.")
-
-# -----------------------------------------------------------
-# MONTHLY CONSISTENCY SCORE
-# -----------------------------------------------------------
-st.subheader("🎯 Monthly Consistency Score")
-
-score = max(0, 100 - (monthly.std() / monthly.mean()) * 100)
-st.metric("Consistency Score", f"{score:.1f} / 100")
-
-# -----------------------------------------------------------
-# RUNNING TOTAL CURVE
-# -----------------------------------------------------------
-st.subheader("📈 Running Total Trend")
-
-df_sorted = df.sort_values("period")
-df_sorted["running_total"] = df_sorted["amount"].cumsum()
-st.line_chart(df_sorted.set_index("period")["running_total"])
-
-# -----------------------------------------------------------
-# MONTHLY CUMULATIVE CURVE
-# -----------------------------------------------------------
-st.subheader("📈 Cumulative Spend by Month")
-
-cumulative_month = monthly.cumsum()
-st.line_chart(cumulative_month)
+    # -------------------------------------------------------
+    # Cumulative by Month
+    # -------------------------------------------------------
+    st.markdown("### 📈 Cumulative Spend by Month")
+    cumulative_month = monthly.cumsum()
+    st.line_chart(cumulative_month)
