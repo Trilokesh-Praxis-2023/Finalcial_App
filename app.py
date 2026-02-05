@@ -59,21 +59,23 @@ df = df.sort_values("period", ascending=False).reset_index(drop=True)
 # -----------------------------------------------------------
 # SIDEBAR FILTERS
 # -----------------------------------------------------------
-st.sidebar.markdown("### 🔍 Smart Filters")
 
-f_year  = st.sidebar.multiselect("Year", sorted(df.year.unique()))
-f_month = st.sidebar.multiselect("Month", sorted(df.year_month.unique()))
-f_acc   = st.sidebar.multiselect("Account", sorted(df.accounts.unique()))
+st.sidebar.markdown("### 🔍 Filters")
 
-# ------------------ EXCLUDE CATEGORY (Power BI style) ------------------
-st.sidebar.markdown("### 🚫 Exclude Category")
+c1, c2 = st.sidebar.columns(2)
 
-all_categories = sorted(df.category.unique())
-exclude_cat = st.sidebar.multiselect(
-    label="",
-    options=all_categories,
-    placeholder="Filter out category..."
-)
+with c1:
+    f_year = st.multiselect("Year", sorted(df.year.unique()))
+    f_acc  = st.multiselect("Account", sorted(df.accounts.unique()))
+
+with c2:
+    f_month = st.multiselect("Month", sorted(df.year_month.unique()))
+    exclude_cat = st.multiselect(
+        "",
+        sorted(df.category.unique()),
+        placeholder="Exclude category..."
+    )
+
 
 
 # -----------------------------------------------------------

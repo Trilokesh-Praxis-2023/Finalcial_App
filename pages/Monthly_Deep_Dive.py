@@ -12,7 +12,7 @@ if os.path.exists(css_path):
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 st.set_page_config(layout="wide")
-st.title("📅 Monthly Deep Dive — Category Analytics (Excluding Rent)")
+st.title("📅 Monthly Deep Dive — Category Analytics")
 
 # -----------------------------------------------------------
 # LOAD DATA
@@ -22,12 +22,21 @@ df["period"] = pd.to_datetime(df["period"])
 df["year_month"] = df["period"].dt.to_period("M").astype(str)
 
 # -----------------------------------------------------------
-# REMOVE RENT
+# SIDEBAR EXCLUDE CATEGORY (same logic)
 # -----------------------------------------------------------
-df = df[df["category"].str.lower() != "rent"].copy()
+all_categories = sorted(df["category"].unique())
+
+exclude_cat = st.sidebar.multiselect(
+    label="",
+    options=all_categories,
+    placeholder="Filter out category..."
+)
+
+if exclude_cat:
+    df = df[~df["category"].isin(exclude_cat)]
 
 if df.empty:
-    st.warning("No data available after excluding Rent.")
+    st.warning("No data available after applying filter.")
     st.stop()
 
 categories = sorted(df["category"].unique())
