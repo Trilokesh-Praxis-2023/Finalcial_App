@@ -66,11 +66,10 @@ f_month = st.sidebar.multiselect("Month", sorted(df.year_month.unique()))
 f_acc   = st.sidebar.multiselect("Account", sorted(df.accounts.unique()))
 
 # ------------------ EXCLUDE CATEGORY (Power BI style) ------------------
-st.sidebar.markdown("### 🚫 Exclude Category")
+st.sidebar.markdown("### Exclude Category")
 
 all_categories = sorted(df.category.unique())
 exclude_cat = st.sidebar.multiselect(
-    "Select category to EXCLUDE",
     all_categories
 )
 
