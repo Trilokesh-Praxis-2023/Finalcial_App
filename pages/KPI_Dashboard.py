@@ -24,15 +24,27 @@ df["period"] = pd.to_datetime(df["period"])
 df = df.sort_values("period", ascending=False).reset_index(drop=True)
 
 # -----------------------------------------------------------
-# SIDEBAR FILTERS
+# SIDEBAR FILTERS (Compact + Exclude Category)
 # -----------------------------------------------------------
 st.sidebar.markdown("### 🔍 Smart Filters")
 
-f_year  = st.sidebar.multiselect("Year", sorted(df.year.unique()))
-f_month = st.sidebar.multiselect("Month", sorted(df.year_month.unique()))
-f_cat   = st.sidebar.multiselect("Category", sorted(df.category.unique()))
-f_acc   = st.sidebar.multiselect("Account", sorted(df.accounts.unique()))
+c1, c2 = st.sidebar.columns(2)
 
+with c1:
+    f_year = st.multiselect("Year", sorted(df.year.unique()))
+    f_acc  = st.multiselect("Account", sorted(df.accounts.unique()))
+
+with c2:
+    f_month = st.multiselect("Month", sorted(df.year_month.unique()))
+    exclude_cat = st.multiselect(
+        "",
+        sorted(df.category.unique()),
+        placeholder="Exclude category..."
+    )
+
+# -----------------------------------------------------------
+# APPLY FILTERS
+# -----------------------------------------------------------
 filtered = df.copy()
 
 if f_year:
@@ -41,11 +53,12 @@ if f_year:
 if f_month:
     filtered = filtered[filtered.year_month.isin(f_month)]
 
-if f_cat:
-    filtered = filtered[filtered.category.isin(f_cat)]
-
 if f_acc:
     filtered = filtered[filtered.accounts.isin(f_acc)]
+
+# 👉 Exclude category logic
+if exclude_cat:
+    filtered = filtered[~filtered.category.isin(exclude_cat)]
 
 # -----------------------------------------------------------
 # ADVANCED KPI STRIP
