@@ -1,0 +1,25 @@
+# -------------------------------
+# STEP 1 — Normal pull (no flag!)
+# -------------------------------
+git pull origin main
+
+# -------------------------------
+# STEP 2 — Timestamp backup
+# -------------------------------
+$ts = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+
+Copy-Item `
+  -Path ".\data\finance_data.csv" `
+  -Destination ".\data\backups\finance_data_$ts.csv" `
+  -Force
+
+# -------------------------------
+# STEP 3 — Add & Commit
+# -------------------------------
+git add .
+git commit -m "Auto backup + data update $ts"
+
+# -------------------------------
+# STEP 4 — Push
+# -------------------------------
+git push origin main
