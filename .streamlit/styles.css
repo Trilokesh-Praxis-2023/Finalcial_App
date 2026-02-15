@@ -28,16 +28,24 @@
     background-attachment: fixed;
 }
 
-/* Remove Streamlit default top header strip (blank black bar) */
+/* Keep Streamlit top controls visible while avoiding a heavy top bar */
 header[data-testid="stHeader"] {
     background: transparent !important;
-    height: 0 !important;
-    min-height: 0 !important;
+    height: 3.25rem !important;
+    min-height: 3.25rem !important;
+    border-bottom: none !important;
 }
 
 [data-testid="stToolbar"] {
-    top: 0.25rem;
+    top: 0.55rem;
     right: 0.75rem;
+    z-index: 1001;
+}
+
+button[data-testid="collapsedControl"] {
+    top: 0.55rem !important;
+    left: 0.75rem !important;
+    z-index: 1001 !important;
 }
 
 [data-testid="stDecoration"] {
@@ -45,12 +53,12 @@ header[data-testid="stHeader"] {
 }
 
 [data-testid="stAppViewContainer"] > .main {
-    padding-top: 0 !important;
+    padding-top: 0.25rem !important;
 }
 
 section.main > div,
 [data-testid="stMain"] > div {
-    padding-top: 0 !important;
+    padding-top: 0.25rem !important;
 }
 
 .stApp::before {
