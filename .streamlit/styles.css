@@ -28,6 +28,31 @@
     background-attachment: fixed;
 }
 
+/* Remove Streamlit default top header strip (blank black bar) */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 0 !important;
+    min-height: 0 !important;
+}
+
+[data-testid="stToolbar"] {
+    top: 0.25rem;
+    right: 0.75rem;
+}
+
+[data-testid="stDecoration"] {
+    display: none !important;
+}
+
+[data-testid="stAppViewContainer"] > .main {
+    padding-top: 0 !important;
+}
+
+section.main > div,
+[data-testid="stMain"] > div {
+    padding-top: 0 !important;
+}
+
 .stApp::before {
     content: "";
     position: fixed;
@@ -113,36 +138,94 @@ section[data-testid="stSidebar"] div {
 }
 
 [data-testid="stMetric"] {
-    background: linear-gradient(175deg, #161616 0%, #111111 100%);
+    position: relative;
+    overflow: hidden;
+    min-height: 124px;
+    display: flex;
+    align-items: center;
+    background:
+        radial-gradient(180px 90px at 85% -10%, rgba(214, 168, 74, 0.14), transparent 70%),
+        linear-gradient(175deg, #161616 0%, #101010 100%);
     border: 1px solid var(--line);
-    border-top: 3px solid var(--gold);
     border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
-    padding: 1rem 1.05rem;
-    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(214, 168, 74, 0.08);
+    padding: 1rem 1.1rem;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, filter 0.22s ease;
+}
+
+[data-testid="stMetric"]::before {
+    content: "";
+    position: absolute;
+    left: 0.8rem;
+    right: 0.8rem;
+    top: 0;
+    height: 3px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background: linear-gradient(90deg, rgba(214, 168, 74, 0.12) 0%, var(--gold) 50%, rgba(214, 168, 74, 0.12) 100%);
+}
+
+[data-testid="stMetric"]::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 110%;
+    height: 100%;
+    background: linear-gradient(78deg, transparent 0%, rgba(255, 255, 255, 0.11) 48%, transparent 100%);
+    transform: skewX(-22deg);
+    transition: left 0.9s ease;
 }
 
 [data-testid="stMetric"]:hover {
-    transform: translateY(-4px);
+    transform: translateY(-4px) scale(1.01);
     border-color: var(--line-strong);
-    box-shadow: var(--shadow-md), 0 0 0 1px rgba(214, 168, 74, 0.2);
+    filter: brightness(1.02);
+    box-shadow: var(--shadow-md), 0 0 0 1px rgba(214, 168, 74, 0.24);
+}
+
+[data-testid="stMetric"]:hover::after {
+    left: 170%;
 }
 
 [data-testid="stMetricLabel"] {
     color: var(--muted) !important;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     font-size: 0.72rem;
     font-weight: 700;
+    opacity: 0.96;
 }
 
 [data-testid="stMetricValue"] {
     color: var(--gold-soft) !important;
     font-weight: 800;
+    font-size: clamp(1.18rem, 1.35vw, 1.7rem);
+    line-height: 1.15;
+    letter-spacing: 0.01em;
 }
 
 [data-testid="stMetricDelta"] {
     color: #f0c56f !important;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-top: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(214, 168, 74, 0.14);
+    border: 1px solid rgba(214, 168, 74, 0.28);
+}
+
+[data-testid="stMetricDelta"] svg {
+    width: 0.8rem;
+    height: 0.8rem;
+}
+
+[data-testid="stHorizontalBlock"] {
+    gap: 0.85rem;
 }
 
 .stButton > button,
@@ -212,14 +295,113 @@ details[data-testid="stExpander"] summary {
     font-weight: 700;
 }
 
+/* DataFrame and table containers */
 [data-testid="stDataFrame"],
-[data-testid="stTable"],
-[data-testid="stVegaLiteChart"],
-[data-testid="stPlotlyChart"] {
+[data-testid="stTable"] {
+    position: relative;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    background: #121212;
-    box-shadow: var(--shadow-sm);
+    background: linear-gradient(180deg, #151515 0%, #101010 100%);
+    box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(214, 168, 74, 0.08);
+    overflow: hidden;
+}
+
+[data-testid="stDataFrame"]::before,
+[data-testid="stTable"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(214, 168, 74, 0.15) 0%, var(--gold) 50%, rgba(214, 168, 74, 0.15) 100%);
+}
+
+/* Interactive st.dataframe grid */
+[data-testid="stDataFrame"] [role="grid"] {
+    background: transparent !important;
+}
+
+[data-testid="stDataFrame"] [role="columnheader"] {
+    background: #1b1710 !important;
+    color: var(--gold-soft) !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid rgba(214, 168, 74, 0.32) !important;
+}
+
+[data-testid="stDataFrame"] [role="gridcell"] {
+    color: #eee5cf !important;
+    border-bottom: 1px solid rgba(214, 168, 74, 0.14) !important;
+}
+
+[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"] {
+    background: rgba(214, 168, 74, 0.1) !important;
+}
+
+/* Static st.table styling */
+[data-testid="stTable"] table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #eee5cf;
+    font-size: 0.92rem;
+}
+
+[data-testid="stTable"] thead tr {
+    background: #1b1710;
+}
+
+[data-testid="stTable"] th {
+    color: var(--gold-soft) !important;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(214, 168, 74, 0.35);
+    padding: 0.6rem 0.75rem;
+}
+
+[data-testid="stTable"] td {
+    border-bottom: 1px solid rgba(214, 168, 74, 0.16);
+    padding: 0.55rem 0.75rem;
+}
+
+[data-testid="stTable"] tbody tr:nth-child(even) {
+    background: rgba(214, 168, 74, 0.05);
+}
+
+[data-testid="stTable"] tbody tr:hover {
+    background: rgba(214, 168, 74, 0.12);
+}
+
+/* Chart cards */
+[data-testid="stVegaLiteChart"],
+[data-testid="stPlotlyChart"] {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background:
+        radial-gradient(220px 140px at 92% -10%, rgba(214, 168, 74, 0.11), transparent 70%),
+        linear-gradient(175deg, #151515 0%, #101010 100%);
+    box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(214, 168, 74, 0.08);
+    padding: 0.38rem 0.42rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+[data-testid="stVegaLiteChart"]::before,
+[data-testid="stPlotlyChart"]::before {
+    content: "";
+    position: absolute;
+    left: 0.8rem;
+    right: 0.8rem;
+    top: 0;
+    height: 2px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background: linear-gradient(90deg, rgba(214, 168, 74, 0.08) 0%, var(--gold) 50%, rgba(214, 168, 74, 0.08) 100%);
+}
+
+[data-testid="stVegaLiteChart"]:hover,
+[data-testid="stPlotlyChart"]:hover {
+    transform: translateY(-2px);
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-md), 0 0 0 1px rgba(214, 168, 74, 0.2);
 }
 
 div[data-baseweb="notification"] {
@@ -269,7 +451,19 @@ hr {
     }
 
     [data-testid="stMetric"] {
+        min-height: 106px;
         padding: 0.82rem 0.86rem;
+    }
+
+    [data-testid="stTable"] th,
+    [data-testid="stTable"] td {
+        padding: 0.46rem 0.52rem;
+        font-size: 0.84rem;
+    }
+
+    [data-testid="stVegaLiteChart"],
+    [data-testid="stPlotlyChart"] {
+        padding: 0.26rem 0.24rem;
     }
 
     .title-main {
