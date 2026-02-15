@@ -1,22 +1,31 @@
-/* =======================================================================
-    👑 ROYAL BLACK + GOLD — V2 ULTRA PREMIUM
-    Enhancements Added:
-    ⭐ Softer Neon Gold + Richer Shadow Depth
-    ⚡ Fluid Shimmer + Lift Motion
-    🥇 Sidebar now Lux Glass + Gold Beam Edge
-    🌫 Ambient Mist Gentle, Less Strain, More Elegance
-    🔥 Header Glow + Section Divider Styling
-   ======================================================================= */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
+:root {
+    --bg-0: #06131b;
+    --bg-1: #0b202c;
+    --surface: #102736;
+    --surface-soft: #163647;
+    --line: rgba(125, 227, 195, 0.28);
+    --line-strong: rgba(125, 227, 195, 0.5);
+    --text: #e8f8f3;
+    --muted: #9ab8b0;
+    --accent: #31d89f;
+    --accent-soft: #89f3d4;
+    --accent-glow: rgba(49, 216, 159, 0.35);
+    --danger: #ff7d7d;
+    --radius: 16px;
+    --shadow-lg: 0 20px 42px rgba(0, 0, 0, 0.42);
+    --shadow-md: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
 
-/* =======================================================================
-   🌑 GLOBAL BACKGROUND — Cinematic Depth + Gold Atmosphere
-   ======================================================================= */
 .stApp {
-    background: linear-gradient(145deg, #080808 0%, #0d0e10 42%, #151516 100%);
+    font-family: "Space Grotesk", sans-serif;
+    color: var(--text);
+    background:
+        radial-gradient(1200px 700px at 8% 2%, rgba(49, 216, 159, 0.12), transparent 58%),
+        radial-gradient(950px 600px at 92% 96%, rgba(81, 181, 255, 0.1), transparent 62%),
+        linear-gradient(145deg, var(--bg-0) 0%, var(--bg-1) 52%, #091a23 100%);
     background-attachment: fixed;
-    font-family: "Poppins", sans-serif;
-    color: #fff !important;
 }
 
 .stApp::before {
@@ -24,221 +33,277 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background:
-        radial-gradient(circle at 16% 12%, rgba(255,200,50,0.15), transparent 68%),
-        radial-gradient(circle at 85% 84%, rgba(255,180,40,0.18), transparent 70%);
-    z-index: -2;
-}
-
-.stApp::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(180deg, rgba(255,200,60,0.03) 0%, transparent 70%);
+    background-image:
+        linear-gradient(transparent 97%, rgba(137, 243, 212, 0.05) 100%),
+        linear-gradient(90deg, transparent 97%, rgba(137, 243, 212, 0.05) 100%);
+    background-size: 38px 38px, 38px 38px;
+    opacity: 0.18;
     z-index: -1;
 }
 
-
-/* =======================================================================
-   🎨 VARIABLES — Golden Identity
-   ======================================================================= */
-:root {
-    --bg:#0e0e10;
-    --gold:#FFB800;
-    --gold-soft:#FFE8BB;
-    --gold-glow:#FFD36A;
-    --card:#141414;
-    --radius:18px;
+.block-container {
+    max-width: 1320px;
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+    animation: page-enter 0.45s ease-out;
 }
 
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
-/* =======================================================================
-   🔥 KPI METRIC CARDS — Royal Panels + Shimmer
-   ======================================================================= */
+h1, h2, h3, h4, h5 {
+    font-family: "Outfit", sans-serif;
+    color: var(--text) !important;
+    letter-spacing: 0.01em;
+}
+
+h1 {
+    font-weight: 800 !important;
+}
+
+h2, h3 {
+    font-weight: 700 !important;
+}
+
+p, li, label, span {
+    color: var(--text);
+}
+
+.title-main {
+    text-align: center;
+    font-family: "Outfit", sans-serif;
+    font-size: clamp(1.9rem, 2.8vw, 2.6rem);
+    letter-spacing: 0.03em;
+    margin: 0.2rem 0 0.25rem 0;
+    color: var(--accent-soft) !important;
+    text-shadow: 0 0 26px rgba(137, 243, 212, 0.22);
+}
+
+.subtitle {
+    text-align: center;
+    margin: 0 0 1.4rem 0;
+    color: var(--muted) !important;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+}
+
+.page-title {
+    text-align: center;
+    font-family: "Outfit", sans-serif;
+    font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--accent-soft) !important;
+    text-shadow: 0 0 24px rgba(137, 243, 212, 0.2);
+}
+
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, rgba(15, 41, 57, 0.82), rgba(9, 27, 39, 0.88));
+    border-right: 1px solid var(--line-strong);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(12px) saturate(125%);
+}
+
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span {
+    color: #d8f2ea !important;
+}
+
 [data-testid="stMetric"] {
-    background: var(--card);
-    border-radius: var(--radius);
-    border: 1px solid rgba(255,200,40,0.45);
-    box-shadow: 0 0 18px rgba(255,190,0,0.25);
-    padding: 22px;
-    transition: .35s ease;
-    overflow: hidden;
     position: relative;
+    overflow: hidden;
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--line);
+    background: linear-gradient(165deg, rgba(19, 52, 68, 0.9), rgba(11, 32, 44, 0.92));
+    box-shadow: var(--shadow-md);
+    transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+}
+
+[data-testid="stMetric"]::after {
+    content: "";
+    position: absolute;
+    inset: -1px auto auto -180%;
+    width: 140%;
+    height: 100%;
+    background: linear-gradient(75deg, transparent 0%, rgba(255, 255, 255, 0.2) 45%, transparent 100%);
+    transform: skewX(-18deg);
+    transition: left 0.8s ease;
 }
 
 [data-testid="stMetric"]:hover {
-    transform: translateY(-3px) scale(1.055);
-    box-shadow: 0 0 34px rgba(255,210,80,0.55);
-    border-color: var(--gold);
+    transform: translateY(-4px);
+    border-color: var(--line-strong);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(137, 243, 212, 0.2);
 }
 
-/* Gold Shine Sweep */
-[data-testid="stMetric"]::after {
-    content:"";
-    position:absolute;
-    top:0; left:-170%;
-    width:160%;
-    height:100%;
-    background: linear-gradient(75deg,
-                transparent 0%,
-                rgba(255,255,255,0.22) 45%,
-                transparent 100%);
-    transform: skewX(-18deg);
-    transition: .7s ease-out;
-    opacity:0;
-}
 [data-testid="stMetric"]:hover::after {
-    left:170%;
-    opacity:1;
+    left: 180%;
 }
 
-/* Typography */
-[data-testid="stMetric"] > div > div {
-    color: var(--gold);
-    font-size: 1.85rem !important;
-    font-weight: 800;
-    letter-spacing: .7px;
-}
-span[data-testid="stMetricLabel"] {
-    color: var(--gold-soft);
-    font-size: .84rem;
-    opacity: .88;
+[data-testid="stMetricLabel"] {
+    color: var(--muted) !important;
     text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
 }
 
+[data-testid="stMetricValue"] {
+    color: var(--accent-soft) !important;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
 
-/* =======================================================================
-   📘 FORECAST INTERPRETATION CARD — Gold Glass Info Panel
-   ======================================================================= */
-.forecast-info {
-    background: linear-gradient(
-        145deg,
-        rgba(255,200,60,0.08),
-        rgba(20,20,20,0.92)
-    );
-    border-left: 4px solid var(--gold);
+[data-testid="stMetricDelta"] {
+    color: var(--accent) !important;
+}
+
+.stButton > button,
+[data-testid="stDownloadButton"] > button {
+    border: none;
+    border-radius: 12px;
+    padding: 0.54rem 1.08rem;
+    font-weight: 700;
+    font-family: "Space Grotesk", sans-serif;
+    color: #06261b;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-soft) 100%);
+    box-shadow: 0 8px 20px rgba(49, 216, 159, 0.28);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.stButton > button:hover,
+[data-testid="stDownloadButton"] > button:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.04);
+    box-shadow: 0 14px 28px rgba(49, 216, 159, 0.35);
+}
+
+.stButton > button:focus-visible,
+[data-testid="stDownloadButton"] > button:focus-visible {
+    outline: 2px solid var(--accent-soft);
+    outline-offset: 2px;
+}
+
+div[data-baseweb="input"] > div,
+div[data-baseweb="select"] > div,
+div[data-baseweb="textarea"] > div {
+    border-radius: 12px;
+    border: 1px solid var(--line) !important;
+    background: rgba(16, 39, 54, 0.8) !important;
+    box-shadow: none !important;
+}
+
+div[data-baseweb="input"] input,
+div[data-baseweb="textarea"] textarea,
+div[data-baseweb="select"] input {
+    color: var(--text) !important;
+    font-family: "Space Grotesk", sans-serif !important;
+}
+
+div[data-baseweb="input"] > div:focus-within,
+div[data-baseweb="select"] > div:focus-within,
+div[data-baseweb="textarea"] > div:focus-within {
+    border-color: var(--line-strong) !important;
+    box-shadow: 0 0 0 3px rgba(137, 243, 212, 0.16) !important;
+}
+
+span[data-baseweb="tag"] {
+    border-radius: 999px !important;
+    border: 1px solid rgba(137, 243, 212, 0.45) !important;
+    background: rgba(49, 216, 159, 0.13) !important;
+    color: var(--accent-soft) !important;
+}
+
+details[data-testid="stExpander"] {
+    border: 1px solid var(--line);
     border-radius: var(--radius);
-    padding: 14px 18px;
-    margin-bottom: 18px;
-    font-size: 14px;
-    box-shadow: 0 0 18px rgba(255,190,40,0.25);
-    backdrop-filter: blur(8px);
+    background: linear-gradient(160deg, rgba(15, 40, 55, 0.84), rgba(10, 28, 39, 0.9));
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
 }
 
-.forecast-info b {
-    color: var(--gold);
+details[data-testid="stExpander"] summary {
+    font-family: "Outfit", sans-serif;
+    font-weight: 600;
 }
 
-.forecast-info span {
-    color: var(--gold-soft);
-    font-weight: 500;
-}
-
-
-/* =======================================================================
-   ⭐ SIDEBAR — Royal Glass + Neon Gold Beam
-   ======================================================================= */
-section[data-testid="stSidebar"] {
-    background: rgba(16,16,18,0.72);
-    backdrop-filter: blur(15px) saturate(140%);
-    border-right: 2px solid rgba(255,190,50,0.45);
-    box-shadow: 0 0 26px rgba(255,200,70,0.35);
-    transition: .30s ease;
-}
-section[data-testid="stSidebar"]:hover {
-    border-right: 3px solid var(--gold);
-    box-shadow: 0 0 42px rgba(255,200,70,0.75);
-}
-section[data-testid="stSidebar"] * {
-    color: var(--gold-soft) !important;
-    font-weight: 500;
-}
-
-
-/* =======================================================================
-   🔘 GOLD BUTTONS — Smooth Lift + Glow
-   ======================================================================= */
-.stButton > button {
-    background: linear-gradient(135deg,#FFBD00,#FFE17D);
-    color:#000;
-    padding:10px 24px;
+[data-testid="stDataFrame"],
+[data-testid="stTable"] {
+    border: 1px solid var(--line);
     border-radius: var(--radius);
-    font-weight:700;
-    border:none;
-    transition:.28s cubic-bezier(.25,.85,.35,1.2);
-}
-.stButton > button:hover {
-    transform:translateY(-3px) scale(1.06);
-    box-shadow:0 0 30px rgba(255,215,0,0.75);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
 }
 
-
-/* =======================================================================
-   📌 GOLD SECTION HEADINGS — Royal Glow Titles
-   ======================================================================= */
-h1,h2,h3,h4 {
-    color:var(--gold-soft) !important;
-    text-shadow:0 0 18px rgba(255,210,60,0.35);
-    letter-spacing:.6px;
-    font-weight:700;
+[data-testid="stVegaLiteChart"],
+[data-testid="stPlotlyChart"] {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: rgba(12, 31, 42, 0.78);
+    padding: 0.35rem 0.45rem;
+    box-shadow: var(--shadow-md);
 }
 
-/* Premium Section Divider */
+div[data-baseweb="notification"] {
+    border-radius: 12px !important;
+    border: 1px solid var(--line) !important;
+    background: rgba(15, 40, 53, 0.88) !important;
+}
+
+div[data-baseweb="notification"] svg {
+    color: var(--accent-soft) !important;
+}
+
+a {
+    color: var(--accent-soft);
+}
+
 hr {
-    border:none;
-    height:2px;
-    background:linear-gradient(90deg, transparent, var(--gold), transparent);
-    margin:20px 0;
+    border: none;
+    height: 1px;
+    margin: 1.2rem 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(137, 243, 212, 0.55) 50%, transparent 100%);
 }
 
-
-/* =======================================================================
-   🌀 GOLD RING PAGE LOADER — Smooth Fade-Out
-   ======================================================================= */
-#gold-loader {
-    position: fixed;
-    inset: 0;
-    background:#09090a;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    z-index:99999;
-    animation:loaderFade 2.1s ease forwards;
-    animation-delay:1.66s;
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
 }
 
-/* Triple Ring */
-.gold-wave { 
-    width:90px;height:90px;border-radius:50%;
-    border:4px solid rgba(255,200,60,0.38);
-    position:absolute;animation:ring 1.6s infinite ease-out;
-}
-.gold-wave:nth-child(2){width:60px;height:60px;animation-delay:.25s;border-color:rgba(255,210,90,.55);}
-.gold-wave:nth-child(3){width:32px;height:32px;animation-delay:.5s;border-color:rgba(255,240,130,.9);}
-
-/* Rings expanding */
-@keyframes ring {
-    0% {transform:scale(.45);opacity:1;}
-    100% {transform:scale(2.5);opacity:0;}
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(49, 216, 159, 0.8), rgba(127, 228, 255, 0.7));
+    border-radius: 999px;
 }
 
-/* Fade page loader */
-@keyframes loaderFade {
-    0% {opacity:1;}
-    100% {opacity:0;visibility:hidden;}
+::-webkit-scrollbar-track {
+    background: rgba(8, 20, 29, 0.9);
 }
 
+@media (max-width: 860px) {
+    .block-container {
+        padding-top: 0.55rem;
+        padding-bottom: 1.1rem;
+    }
 
-/* ======= PAGE TITLE HEADING ======= */
-.page-title {
-    text-align:center;
-    font-size:38px;
-    font-weight:800;
-    letter-spacing:1.2px;
-    margin-top:10px;
-    margin-bottom:22px;
-    color: #FFCB47;
-    text-shadow:0 0 16px rgba(255,215,70,0.55),
-                0 0 30px rgba(255,200,50,0.25);
+    [data-testid="stMetric"] {
+        padding: 0.82rem 0.86rem;
+    }
+
+    .title-main {
+        font-size: 1.62rem;
+    }
 }
