@@ -3,15 +3,7 @@
 # -------------------------------
 git pull origin main
 
-# -------------------------------
-# STEP 2 — Timestamp backup
-# -------------------------------
-$ts = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 
-Copy-Item `
-  -Path ".\data\finance_data.csv" `
-  -Destination ".\data\backups\finance_data_$ts.csv" `
-  -Force
 
 # -------------------------------
 # STEP 3 — Add & Commit

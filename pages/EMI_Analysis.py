@@ -93,12 +93,20 @@ def normalise_part_payments(payment_df):
     ]
 
 
-def build_schedule(principal, annual_rate, tenure_months, part_payments=None, strategy="reduce_tenure"):
+def build_schedule(
+    principal,
+    annual_rate,
+    tenure_months,
+    part_payments=None,
+    strategy="reduce_tenure",
+    monthly_extra_payment=0.0,
+):
     part_payments = sorted(part_payments or [], key=lambda item: (item["month"], item["row_id"]))
     monthly_rate = annual_rate / 1200
     starting_emi = ceil_to_rupee(calculate_emi(principal, annual_rate, tenure_months))
     current_emi = starting_emi
     balance = float(principal)
+    monthly_extra_payment = max(float(monthly_extra_payment), 0.0)
 
     payments_by_month = {}
     for payment in part_payments:
@@ -119,7 +127,9 @@ def build_schedule(principal, annual_rate, tenure_months, part_payments=None, st
         principal_paid = max(emi_paid - interest_paid, 0.0)
         balance = max(opening_balance + interest_paid - emi_paid, 0.0)
 
-        total_part_payment = 0.0
+        recurring_extra_paid = min(monthly_extra_payment, balance)
+        balance = max(balance - recurring_extra_paid, 0.0)
+        total_part_payment = recurring_extra_paid
         month_events = payments_by_month.get(month, [])
 
         for payment in month_events:
@@ -155,6 +165,7 @@ def build_schedule(principal, annual_rate, tenure_months, part_payments=None, st
                 "EMI Paid": emi_paid,
                 "Principal Paid": principal_paid,
                 "Interest Paid": interest_paid,
+                "Extra EMI Payment": recurring_extra_paid,
                 "Part Payment": total_part_payment,
                 "Closing Principal": balance,
                 "EMI Next Month": emi_for_next_month,
@@ -178,6 +189,7 @@ def prepare_schedule_display(schedule_df):
         "EMI Paid",
         "Principal Paid",
         "Interest Paid",
+        "Extra EMI Payment",
         "Part Payment",
         "Closing Principal",
         "EMI Next Month",
@@ -276,7 +288,7 @@ if "emi_part_payments" not in st.session_state:
 
 st.markdown("### EMI Overview")
 
-input_col1, input_col2, input_col3, input_col4 = st.columns([1.2, 1, 1, 1.4])
+input_col1, input_col2, input_col3, input_col4, input_col5 = st.columns([1.15, 0.95, 0.9, 1.15, 1.5])
 
 with input_col1:
     loan_amount = st.number_input("Loan Amount", min_value=1000.0, value=194351.0, step=1000.0)
@@ -288,6 +300,14 @@ with input_col3:
     tenure_months = st.number_input("Tenure (Months)", min_value=1, value=48, step=1)
 
 with input_col4:
+    add_extra_with_emi = st.checkbox("Add part payment with each EMI", value=False)
+    monthly_extra_payment = (
+        st.number_input("Extra Amount / Month", min_value=0.0, value=1000.0, step=500.0)
+        if add_extra_with_emi
+        else 0.0
+    )
+
+with input_col5:
     strategy_label = st.radio(
         "Part Payment Strategy",
         options=["Reduce tenure, keep EMI same", "Reduce EMI, keep tenure same"],
@@ -302,20 +322,24 @@ original_schedule, _, original_emi, _, _ = build_schedule(
     tenure_months=tenure_months,
     part_payments=[],
     strategy="reduce_tenure",
+    monthly_extra_payment=0.0,
 )
 
 original_total_interest = original_schedule["Interest Paid"].sum()
 original_total_payment = original_schedule["EMI Paid"].sum()
 
-overview_cols = st.columns(6)
+overview_cols = st.columns(7)
 overview_cols[0].metric("Loan Amount", format_currency(loan_amount, 0))
 overview_cols[1].metric("Interest Rate", f"{interest_rate:.2f}%")
 overview_cols[2].metric("Tenure", f"{tenure_months} months")
 overview_cols[3].metric("EMI Amount", format_currency(original_emi, 0))
-overview_cols[4].metric("Total Interest Payable", format_currency(original_total_interest, 0))
-overview_cols[5].metric("Total Payment", format_currency(original_total_payment, 0))
+overview_cols[4].metric("Extra With EMI", format_currency(monthly_extra_payment, 0))
+overview_cols[5].metric("Total Interest Payable", format_currency(original_total_interest, 0))
+overview_cols[6].metric("Total Payment", format_currency(original_total_payment, 0))
 
-st.caption("Assumption: each part payment is applied after the regular EMI of the selected month.")
+st.caption(
+    "Assumption: any extra amount added with EMI and any one-time part payment are both applied after the regular EMI of that month."
+)
 
 
 # -----------------------------------------------------------
@@ -323,6 +347,7 @@ st.caption("Assumption: each part payment is applied after the regular EMI of th
 # -----------------------------------------------------------
 st.divider()
 st.markdown("### Part Payment Inputs")
+st.caption("Use the table below for one-time lump-sum part payments. Use the EMI option above for a recurring extra payment every month.")
 
 edited_payments = st.data_editor(
     st.session_state["emi_part_payments"],
@@ -366,11 +391,14 @@ updated_schedule, payment_events, _, latest_emi, unused_payments = build_schedul
     tenure_months=tenure_months,
     part_payments=part_payments,
     strategy=strategy,
+    monthly_extra_payment=monthly_extra_payment,
 )
 
 updated_total_interest = updated_schedule["Interest Paid"].sum()
 updated_regular_payment = updated_schedule["EMI Paid"].sum()
+recurring_extra_total = updated_schedule["Extra EMI Payment"].sum()
 total_part_payment = updated_schedule["Part Payment"].sum()
+one_time_part_payment_total = max(total_part_payment - recurring_extra_total, 0.0)
 updated_total_payment = updated_regular_payment + total_part_payment
 
 original_months = int(len(original_schedule))
@@ -406,7 +434,7 @@ result_cols[1].metric(
     f"{(interest_saved / original_total_interest):.1%}" if original_total_interest else "0.0%",
 )
 result_cols[2].metric("Updated Interest", format_currency(updated_total_interest, 0))
-result_cols[3].metric("Total Part Payments", format_currency(total_part_payment, 0))
+result_cols[3].metric("Extra In EMI", format_currency(recurring_extra_total, 0))
 result_cols[4].metric(
     "Revised EMI",
     format_currency(revised_emi, 0),
@@ -415,8 +443,15 @@ result_cols[4].metric(
 )
 result_cols[5].metric("Updated Total Payment", format_currency(updated_total_payment, 0))
 
-if payment_events.empty:
-    st.info("Add one or more part payment rows to see revised tenure, EMI, and savings.")
+summary_cols = st.columns(3)
+summary_cols[0].metric("One-Time Part Payments", format_currency(one_time_part_payment_total, 0))
+summary_cols[1].metric("Total Extra Payments", format_currency(total_part_payment, 0))
+summary_cols[2].metric("Initial EMI + Extra", format_currency(original_emi + monthly_extra_payment, 0))
+
+if payment_events.empty and monthly_extra_payment <= 0:
+    st.info("Add one or more part payment rows or enable extra payment with EMI to see revised tenure, EMI, and savings.")
+elif payment_events.empty:
+    st.caption("No one-time part payments added yet. The recurring extra EMI payment is already reflected in the schedules and graphs.")
 else:
     st.markdown("#### Part Payment Impact Timeline")
     st.dataframe(prepare_event_display(payment_events), width="stretch", height=220)
@@ -428,10 +463,11 @@ comparison_df = pd.merge(
             "Interest Paid": "Original Interest Paid",
         }
     ),
-    updated_schedule[["Month", "Closing Principal", "Interest Paid", "Part Payment", "EMI Paid"]].rename(
+    updated_schedule[["Month", "Closing Principal", "Interest Paid", "Extra EMI Payment", "Part Payment", "EMI Paid"]].rename(
         columns={
             "Closing Principal": "Updated Closing Principal",
             "Interest Paid": "Updated Interest Paid",
+            "Extra EMI Payment": "Updated Extra EMI Payment",
             "EMI Paid": "Updated EMI Paid",
         }
     ),
@@ -443,6 +479,7 @@ comparison_df["Original Closing Principal"] = comparison_df["Original Closing Pr
 comparison_df["Updated Closing Principal"] = comparison_df["Updated Closing Principal"].fillna(0.0)
 comparison_df["Original Interest Paid"] = comparison_df["Original Interest Paid"].fillna(0.0)
 comparison_df["Updated Interest Paid"] = comparison_df["Updated Interest Paid"].fillna(0.0)
+comparison_df["Updated Extra EMI Payment"] = comparison_df["Updated Extra EMI Payment"].fillna(0.0)
 comparison_df["Updated EMI Paid"] = comparison_df["Updated EMI Paid"].fillna(0.0)
 comparison_df["Part Payment"] = comparison_df["Part Payment"].fillna(0.0)
 comparison_df["Balance Difference"] = (
@@ -508,12 +545,12 @@ with chart_col1:
         width="stretch",
     )
     st.caption(
-        f"Loan closes in month {updated_months} after part payments versus month {original_months} in the original plan."
+        f"Loan closes in month {updated_months} after extra payments versus month {original_months} in the original plan."
     )
 
 with chart_col2:
     st.markdown("#### Cumulative Interest Paid")
     st.altair_chart(build_cumulative_interest_chart(cumulative_interest_long), width="stretch")
     st.caption(
-        f"Projected interest saving: {format_currency(interest_saved, 0)} with {format_currency(total_part_payment, 0)} in extra payments."
+        f"Projected interest saving: {format_currency(interest_saved, 0)} with {format_currency(total_part_payment, 0)} in total extra payments."
     )
