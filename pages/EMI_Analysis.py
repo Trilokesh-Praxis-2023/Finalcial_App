@@ -1,5 +1,6 @@
 import math
 import os
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 import altair as alt
@@ -91,6 +92,33 @@ def normalise_part_payments(payment_df):
         }
         for idx, row in cleaned.iterrows()
     ]
+
+
+def calculate_completed_emis(start_date_value, as_of_date_value, total_months):
+    start_ts = pd.Timestamp(start_date_value).normalize()
+    as_of_ts = pd.Timestamp(as_of_date_value).normalize()
+
+    if as_of_ts < start_ts:
+        return 0
+
+    month_gap = (as_of_ts.year - start_ts.year) * 12 + (as_of_ts.month - start_ts.month)
+    completed = month_gap + (1 if as_of_ts.day >= start_ts.day else 0)
+
+    return max(0, min(int(completed), int(total_months)))
+
+
+def add_schedule_dates(schedule_df, start_date_value):
+    if schedule_df.empty:
+        return schedule_df
+
+    dated_df = schedule_df.copy()
+    start_ts = pd.Timestamp(start_date_value).normalize()
+    dated_df.insert(
+        1,
+        "EMI Date",
+        [(start_ts + pd.DateOffset(months=month - 1)).date() for month in dated_df["Month"]],
+    )
+    return dated_df
 
 
 def build_schedule(
@@ -314,6 +342,18 @@ with input_col5:
         horizontal=False,
     )
 
+date_col1, date_col2, date_col3 = st.columns([1, 1, 1.6])
+
+with date_col1:
+    loan_start_date = st.date_input("Loan Start Date", value=date(2026, 4, 3))
+
+with date_col2:
+    as_of_date = st.date_input("Auto Update As Of", value=pd.Timestamp.today().date())
+
+with date_col3:
+    st.markdown("")
+    st.caption("EMI auto-posting rule: one EMI is treated as paid on the 3rd of every month, starting April 3, 2026.")
+
 strategy = "reduce_tenure" if strategy_label.startswith("Reduce tenure") else "reduce_emi"
 
 original_schedule, _, original_emi, _, _ = build_schedule(
@@ -327,6 +367,7 @@ original_schedule, _, original_emi, _, _ = build_schedule(
 
 original_total_interest = original_schedule["Interest Paid"].sum()
 original_total_payment = original_schedule["EMI Paid"].sum()
+original_schedule = add_schedule_dates(original_schedule, loan_start_date)
 
 overview_cols = st.columns(7)
 overview_cols[0].metric("Loan Amount", format_currency(loan_amount, 0))
@@ -400,6 +441,7 @@ recurring_extra_total = updated_schedule["Extra EMI Payment"].sum()
 total_part_payment = updated_schedule["Part Payment"].sum()
 one_time_part_payment_total = max(total_part_payment - recurring_extra_total, 0.0)
 updated_total_payment = updated_regular_payment + total_part_payment
+updated_schedule = add_schedule_dates(updated_schedule, loan_start_date)
 
 original_months = int(len(original_schedule))
 updated_months = int(len(updated_schedule))
@@ -407,6 +449,29 @@ tenure_reduction = max(original_months - updated_months, 0)
 interest_saved = max(original_total_interest - updated_total_interest, 0.0)
 revised_emi = latest_emi if strategy == "reduce_emi" and not payment_events.empty else original_emi
 emi_reduction = max(original_emi - revised_emi, 0.0)
+completed_emis = calculate_completed_emis(loan_start_date, as_of_date, updated_months)
+
+if completed_emis > 0:
+    current_outstanding = float(updated_schedule.iloc[completed_emis - 1]["Closing Principal"])
+else:
+    current_outstanding = float(loan_amount)
+
+if completed_emis < updated_months:
+    next_emi_row = updated_schedule.iloc[completed_emis]
+    next_emi_date = next_emi_row["EMI Date"]
+    next_total_due = float(next_emi_row["EMI Paid"] + next_emi_row["Part Payment"])
+    next_base_emi = float(next_emi_row["EMI Paid"])
+    next_extra_emi = float(next_emi_row["Extra EMI Payment"])
+    next_one_time_part_payment = max(float(next_emi_row["Part Payment"] - next_emi_row["Extra EMI Payment"]), 0.0)
+else:
+    next_emi_date = None
+    next_total_due = 0.0
+    next_base_emi = 0.0
+    next_extra_emi = 0.0
+    next_one_time_part_payment = 0.0
+
+loan_closed_date = updated_schedule.iloc[-1]["EMI Date"] if updated_months else loan_start_date
+loan_month_label = min(completed_emis + 1, updated_months) if updated_months else 0
 
 if unused_payments:
     first_unused = min(payment["month"] for payment in unused_payments)
@@ -420,6 +485,18 @@ if unused_payments:
 # -----------------------------------------------------------
 st.divider()
 st.markdown("### Results & Comparison")
+
+auto_cols = st.columns(6)
+auto_cols[0].metric("EMIs Auto Posted", f"{completed_emis} / {updated_months}")
+auto_cols[1].metric("Current Outstanding", format_currency(current_outstanding, 0))
+auto_cols[2].metric("Current Loan Month", f"Month {loan_month_label}" if next_emi_date else "Closed")
+auto_cols[3].metric("Next EMI Date", next_emi_date.strftime("%d %b %Y") if next_emi_date else "Completed")
+auto_cols[4].metric("Next EMI Due", format_currency(next_total_due, 0))
+auto_cols[5].metric("Projected Closure", loan_closed_date.strftime("%d %b %Y"))
+
+st.caption(
+    f"As of {pd.Timestamp(as_of_date).strftime('%d %b %Y')}, the calculator auto-updates the live loan position using the 3rd of each month as the EMI date."
+)
 
 result_cols = st.columns(6)
 result_cols[0].metric(
@@ -448,6 +525,12 @@ summary_cols[0].metric("One-Time Part Payments", format_currency(one_time_part_p
 summary_cols[1].metric("Total Extra Payments", format_currency(total_part_payment, 0))
 summary_cols[2].metric("Initial EMI + Extra", format_currency(original_emi + monthly_extra_payment, 0))
 
+detail_cols = st.columns(4)
+detail_cols[0].metric("Next Base EMI", format_currency(next_base_emi, 0))
+detail_cols[1].metric("Next Extra EMI", format_currency(next_extra_emi, 0))
+detail_cols[2].metric("Next One-Time Payment", format_currency(next_one_time_part_payment, 0))
+detail_cols[3].metric("Loan Start", pd.Timestamp(loan_start_date).strftime("%d %b %Y"))
+
 if payment_events.empty and monthly_extra_payment <= 0:
     st.info("Add one or more part payment rows or enable extra payment with EMI to see revised tenure, EMI, and savings.")
 elif payment_events.empty:
@@ -457,8 +540,9 @@ else:
     st.dataframe(prepare_event_display(payment_events), width="stretch", height=220)
 
 comparison_df = pd.merge(
-    original_schedule[["Month", "Closing Principal", "Interest Paid"]].rename(
+    original_schedule[["Month", "EMI Date", "Closing Principal", "Interest Paid"]].rename(
         columns={
+            "EMI Date": "EMI Date",
             "Closing Principal": "Original Closing Principal",
             "Interest Paid": "Original Interest Paid",
         }
