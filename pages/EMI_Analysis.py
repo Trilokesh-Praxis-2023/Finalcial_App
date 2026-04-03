@@ -121,12 +121,22 @@ def add_schedule_dates(schedule_df, start_date_value):
     return dated_df
 
 
+def build_month_options(schedule_df):
+    month_options = []
+
+    for _, row in schedule_df.iterrows():
+        emi_date = pd.Timestamp(row["EMI Date"]).strftime("%d %b %Y")
+        label = f"Month {int(row['Month'])} - {emi_date}"
+        month_options.append((label, int(row["Month"])))
+
+    return month_options
+
+
 def build_schedule(
     principal,
     annual_rate,
     tenure_months,
     part_payments=None,
-    strategy="reduce_tenure",
     monthly_extra_payment=0.0,
 ):
     part_payments = sorted(part_payments or [], key=lambda item: (item["month"], item["row_id"]))
@@ -166,10 +176,6 @@ def build_schedule(
             total_part_payment += applied_amount
             applied_row_ids.add(payment["row_id"])
 
-            if strategy == "reduce_emi" and balance > 0.01:
-                remaining_tenure = max(tenure_months - month, 1)
-                current_emi = ceil_to_rupee(calculate_emi(balance, annual_rate, remaining_tenure))
-
             revised_total_tenure = month + calculate_remaining_months(balance, monthly_rate, current_emi)
 
             payment_events.append(
@@ -178,7 +184,7 @@ def build_schedule(
                     "Payment Month": month,
                     "Part Payment": applied_amount,
                     "Balance After Payment": balance,
-                    "Revised EMI": current_emi if balance > 0.01 else 0.0,
+                    "EMI After Payment": current_emi if balance > 0.01 else 0.0,
                     "Projected Total Tenure": revised_total_tenure,
                     "Months Saved": max(tenure_months - revised_total_tenure, 0),
                 }
@@ -234,7 +240,7 @@ def prepare_event_display(events_df):
         return events_df
 
     display_df = events_df.copy()
-    for column in ["Part Payment", "Balance After Payment", "Revised EMI"]:
+    for column in ["Part Payment", "Balance After Payment", "EMI After Payment"]:
         display_df[column] = display_df[column].round(2)
 
     return display_df
@@ -316,7 +322,7 @@ if "emi_part_payments" not in st.session_state:
 
 st.markdown("### EMI Overview")
 
-input_col1, input_col2, input_col3, input_col4, input_col5 = st.columns([1.15, 0.95, 0.9, 1.15, 1.5])
+input_col1, input_col2, input_col3, input_col4 = st.columns([1.25, 1, 1, 1.4])
 
 with input_col1:
     loan_amount = st.number_input("Loan Amount", min_value=1000.0, value=194351.0, step=1000.0)
@@ -335,14 +341,7 @@ with input_col4:
         else 0.0
     )
 
-with input_col5:
-    strategy_label = st.radio(
-        "Part Payment Strategy",
-        options=["Reduce tenure, keep EMI same", "Reduce EMI, keep tenure same"],
-        horizontal=False,
-    )
-
-date_col1, date_col2, date_col3 = st.columns([1, 1, 1.6])
+date_col1, date_col2, date_col3 = st.columns([1, 1, 1.9])
 
 with date_col1:
     loan_start_date = st.date_input("Loan Start Date", value=date(2026, 4, 3))
@@ -352,22 +351,22 @@ with date_col2:
 
 with date_col3:
     st.markdown("")
-    st.caption("EMI auto-posting rule: one EMI is treated as paid on the 3rd of every month, starting April 3, 2026.")
-
-strategy = "reduce_tenure" if strategy_label.startswith("Reduce tenure") else "reduce_emi"
+    st.caption(
+        "EMI auto-posting rule: one EMI is treated as paid on the 3rd of every month, starting April 3, 2026. One-time lump-sum part payments keep EMI fixed and reduce tenure."
+    )
 
 original_schedule, _, original_emi, _, _ = build_schedule(
     principal=loan_amount,
     annual_rate=interest_rate,
     tenure_months=tenure_months,
     part_payments=[],
-    strategy="reduce_tenure",
     monthly_extra_payment=0.0,
 )
 
 original_total_interest = original_schedule["Interest Paid"].sum()
 original_total_payment = original_schedule["EMI Paid"].sum()
 original_schedule = add_schedule_dates(original_schedule, loan_start_date)
+month_options = build_month_options(original_schedule)
 
 overview_cols = st.columns(7)
 overview_cols[0].metric("Loan Amount", format_currency(loan_amount, 0))
@@ -379,7 +378,7 @@ overview_cols[5].metric("Total Interest Payable", format_currency(original_total
 overview_cols[6].metric("Total Payment", format_currency(original_total_payment, 0))
 
 st.caption(
-    "Assumption: any extra amount added with EMI and any one-time part payment are both applied after the regular EMI of that month."
+    "Assumption: any extra amount added with EMI and any one-time lump-sum part payment are both applied after the regular EMI of that month."
 )
 
 
@@ -388,7 +387,44 @@ st.caption(
 # -----------------------------------------------------------
 st.divider()
 st.markdown("### Part Payment Inputs")
-st.caption("Use the table below for one-time lump-sum part payments. Use the EMI option above for a recurring extra payment every month.")
+st.caption(
+    "Each row below is a one-time lump-sum part payment in that EMI month. The base EMI stays the same and the loan tenure reduces automatically."
+)
+
+add_payment_col1, add_payment_col2, add_payment_col3 = st.columns([1.8, 1, 0.8])
+
+with add_payment_col1:
+    selected_month_label = st.selectbox(
+        "Select Month For Lump-Sum Payment",
+        options=[label for label, _ in month_options],
+        index=0,
+    )
+
+with add_payment_col2:
+    selected_lumpsum_amount = st.number_input(
+        "Lump-Sum Amount",
+        min_value=0.0,
+        value=10000.0,
+        step=1000.0,
+    )
+
+with add_payment_col3:
+    st.markdown("")
+    st.markdown("")
+    if st.button("Add Lump-Sum"):
+        selected_month_value = dict(month_options)[selected_month_label]
+        if selected_lumpsum_amount > 0:
+            updated_entries = pd.concat(
+                [
+                    st.session_state["emi_part_payments"],
+                    pd.DataFrame(
+                        [{"Payment Month": selected_month_value, "Payment Amount": selected_lumpsum_amount}]
+                    ),
+                ],
+                ignore_index=True,
+            )
+            st.session_state["emi_part_payments"] = updated_entries
+            st.rerun()
 
 edited_payments = st.data_editor(
     st.session_state["emi_part_payments"],
@@ -431,7 +467,6 @@ updated_schedule, payment_events, _, latest_emi, unused_payments = build_schedul
     annual_rate=interest_rate,
     tenure_months=tenure_months,
     part_payments=part_payments,
-    strategy=strategy,
     monthly_extra_payment=monthly_extra_payment,
 )
 
@@ -447,8 +482,7 @@ original_months = int(len(original_schedule))
 updated_months = int(len(updated_schedule))
 tenure_reduction = max(original_months - updated_months, 0)
 interest_saved = max(original_total_interest - updated_total_interest, 0.0)
-revised_emi = latest_emi if strategy == "reduce_emi" and not payment_events.empty else original_emi
-emi_reduction = max(original_emi - revised_emi, 0.0)
+revised_emi = original_emi
 completed_emis = calculate_completed_emis(loan_start_date, as_of_date, updated_months)
 
 if completed_emis > 0:
@@ -513,10 +547,9 @@ result_cols[1].metric(
 result_cols[2].metric("Updated Interest", format_currency(updated_total_interest, 0))
 result_cols[3].metric("Extra In EMI", format_currency(recurring_extra_total, 0))
 result_cols[4].metric(
-    "Revised EMI",
+    "EMI After Part Payment",
     format_currency(revised_emi, 0),
-    f"-{format_currency(emi_reduction, 0)}" if strategy == "reduce_emi" else "No change",
-    delta_color="inverse",
+    "No change",
 )
 result_cols[5].metric("Updated Total Payment", format_currency(updated_total_payment, 0))
 
