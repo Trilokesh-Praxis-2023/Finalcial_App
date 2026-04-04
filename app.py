@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from utils.github_storage import read_csv, write_csv
 from utils.kpi_dashboard import render_kpis, get_income
 
+GOAL_TRACKING_START_PERIOD = "2026-04"
+
 
 def format_currency(value):
     return f"₹{value:,.0f}"
@@ -220,7 +222,9 @@ render_kpis(filtered=filtered, df=df, MONTHLY_BUDGET=20000)
 # GOAL TRACKING
 # -----------------------------------------------------------
 st.markdown("<h3>🎯 Goal Tracking</h3>", unsafe_allow_html=True)
-st.caption("Savings projections use mapped income, including the assumption that income from May 2026 onward is ₹32,000.")
+st.caption(
+    "Savings projections reset from April 2026 and use mapped income, including the assumption that income from May 2026 onward is ₹32,000."
+)
 
 goal_source = df.copy()
 goal_source["period"] = pd.to_datetime(goal_source["period"])
@@ -233,6 +237,9 @@ monthly_goal_view = (
 )
 monthly_goal_view["income"] = monthly_goal_view["year_month"].apply(get_income).astype(float)
 monthly_goal_view = monthly_goal_view[monthly_goal_view["income"] > 0].copy()
+monthly_goal_view = monthly_goal_view[
+    pd.to_datetime(monthly_goal_view["year_month"]) >= pd.Timestamp(GOAL_TRACKING_START_PERIOD)
+].copy()
 monthly_goal_view["savings"] = monthly_goal_view["income"] - monthly_goal_view["spend"]
 monthly_goal_view["month_ts"] = pd.to_datetime(monthly_goal_view["year_month"])
 monthly_goal_view = monthly_goal_view.sort_values("month_ts").reset_index(drop=True)
@@ -249,10 +256,10 @@ else:
 
     default_goals = pd.DataFrame(
         [
-            {"Goal": "Emergency Fund", "Target Amount": 150000.0, "Current Saved": 30000.0},
-            {"Goal": "Trip", "Target Amount": 60000.0, "Current Saved": 10000.0},
-            {"Goal": "Gadget", "Target Amount": 80000.0, "Current Saved": 15000.0},
-            {"Goal": "Loan Closure Target", "Target Amount": 200000.0, "Current Saved": 25000.0},
+            {"Goal": "Emergency Fund", "Target Amount": 150000.0, "Current Saved": 0.0},
+            {"Goal": "Trip", "Target Amount": 60000.0, "Current Saved": 0.0},
+            {"Goal": "Gadget", "Target Amount": 80000.0, "Current Saved": 0.0},
+            {"Goal": "Loan Closure Target", "Target Amount": 200000.0, "Current Saved": 0.0},
         ]
     )
 
