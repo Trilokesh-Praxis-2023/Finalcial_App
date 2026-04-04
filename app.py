@@ -27,6 +27,12 @@ def estimate_goal_completion(current_saved, target_amount, monthly_contribution,
     return completion_month.strftime("%b %Y"), months_needed
 
 
+def months_until_target(current_period, target_period):
+    current = pd.Period(current_period, freq="M")
+    target = pd.Period(target_period, freq="M")
+    return max(int(target - current), 0) + 1
+
+
 # -----------------------------------------------------------
 # CONFIG
 # -----------------------------------------------------------
@@ -256,10 +262,10 @@ else:
 
     default_goals = pd.DataFrame(
         [
-            {"Goal": "Emergency Fund", "Target Amount": 150000.0, "Current Saved": 0.0},
-            {"Goal": "Trip", "Target Amount": 60000.0, "Current Saved": 0.0},
-            {"Goal": "Gadget", "Target Amount": 80000.0, "Current Saved": 0.0},
-            {"Goal": "Loan Closure Target", "Target Amount": 200000.0, "Current Saved": 0.0},
+            {"Goal": "Emergency Fund", "Target Amount": 150000.0, "Current Saved": 0.0, "Target Month": "2026-12", "Priority": "High"},
+            {"Goal": "Trip", "Target Amount": 60000.0, "Current Saved": 0.0, "Target Month": "2026-10", "Priority": "Medium"},
+            {"Goal": "Gadget", "Target Amount": 80000.0, "Current Saved": 0.0, "Target Month": "2027-02", "Priority": "Low"},
+            {"Goal": "Loan Closure Target", "Target Amount": 200000.0, "Current Saved": 0.0, "Target Month": "2027-06", "Priority": "High"},
         ]
     )
 
@@ -281,13 +287,15 @@ else:
             "Goal": st.column_config.TextColumn("Goal"),
             "Target Amount": st.column_config.NumberColumn("Target Amount", min_value=0.0, step=5000.0, format="%.2f"),
             "Current Saved": st.column_config.NumberColumn("Current Saved", min_value=0.0, step=1000.0, format="%.2f"),
+            "Target Month": st.column_config.TextColumn("Target Month", help="Use YYYY-MM format, for example 2026-12"),
+            "Priority": st.column_config.SelectboxColumn("Priority", options=["High", "Medium", "Low"]),
         },
         key="goal_tracker_editor",
     )
     st.session_state["goal_tracker_items"] = goal_editor
 
     goal_results = goal_editor.copy()
-    goal_results = goal_results.dropna(subset=["Goal", "Target Amount", "Current Saved"])
+    goal_results = goal_results.dropna(subset=["Goal", "Target Amount", "Current Saved", "Target Month"])
     goal_results = goal_results[goal_results["Goal"].astype(str).str.strip() != ""].copy()
 
     if goal_results.empty:
@@ -295,6 +303,9 @@ else:
     else:
         goal_results["Target Amount"] = pd.to_numeric(goal_results["Target Amount"], errors="coerce").fillna(0.0)
         goal_results["Current Saved"] = pd.to_numeric(goal_results["Current Saved"], errors="coerce").fillna(0.0)
+        goal_results["Priority"] = goal_results["Priority"].fillna("Medium")
+        goal_results["Target Month"] = goal_results["Target Month"].astype(str).str.strip()
+        goal_results = goal_results[goal_results["Target Month"].str.match(r"^\d{4}-\d{2}$", na=False)].copy()
         goal_results["Remaining"] = (goal_results["Target Amount"] - goal_results["Current Saved"]).clip(lower=0.0)
         goal_results["Progress %"] = goal_results.apply(
             lambda row: ((row["Current Saved"] / row["Target Amount"]) * 100) if row["Target Amount"] > 0 else 0.0,
@@ -303,6 +314,10 @@ else:
 
         completion_labels = []
         months_needed_list = []
+        target_months_left = []
+        required_monthly_list = []
+        target_gap_list = []
+        status_list = []
         for _, row in goal_results.iterrows():
             completion_label, months_needed = estimate_goal_completion(
                 current_saved=row["Current Saved"],
@@ -312,28 +327,88 @@ else:
             )
             completion_labels.append(completion_label)
             months_needed_list.append(months_needed)
+            months_left = months_until_target(current_goal_period, row["Target Month"])
+            target_months_left.append(months_left)
+            required_monthly = (row["Remaining"] / months_left) if months_left > 0 else row["Remaining"]
+            required_monthly_list.append(required_monthly)
+            target_gap = projected_monthly_contribution - required_monthly
+            target_gap_list.append(target_gap)
+            if row["Remaining"] <= 0:
+                status_list.append("Completed")
+            elif projected_monthly_contribution <= 0:
+                status_list.append("No savings pace")
+            elif target_gap >= 0:
+                status_list.append("On Track")
+            else:
+                status_list.append("At Risk")
 
         goal_results["Projected Completion"] = completion_labels
         goal_results["Months Needed"] = months_needed_list
+        goal_results["Months To Target"] = target_months_left
+        goal_results["Required / Month"] = required_monthly_list
+        goal_results["Target Gap"] = target_gap_list
+        goal_results["Status"] = status_list
         goal_results["Suggested Monthly Savings"] = goal_results.apply(
             lambda row: (row["Remaining"] / max(row["Months Needed"], 1)) if row["Months Needed"] not in (None, 0) else 0.0,
             axis=1,
         )
 
+        total_goal_target = float(goal_results["Target Amount"].sum())
+        total_goal_saved = float(goal_results["Current Saved"].sum())
+        total_goal_remaining = float(goal_results["Remaining"].sum())
+        completed_goals = int((goal_results["Status"] == "Completed").sum())
+        at_risk_goals = int((goal_results["Status"] == "At Risk").sum())
+
+        summary1, summary2, summary3, summary4, summary5 = st.columns(5)
+        summary1.metric("Goal Corpus", format_currency(total_goal_target))
+        summary2.metric("Saved So Far", format_currency(total_goal_saved))
+        summary3.metric("Still Needed", format_currency(total_goal_remaining))
+        summary4.metric("Completed Goals", completed_goals)
+        summary5.metric("At-Risk Goals", at_risk_goals)
+
         goal_summary = goal_results.copy()
-        for column in ["Target Amount", "Current Saved", "Remaining", "Progress %", "Suggested Monthly Savings"]:
+        priority_order = {"High": 0, "Medium": 1, "Low": 2}
+        goal_summary["_priority_sort"] = goal_summary["Priority"].map(priority_order).fillna(9)
+        goal_summary = goal_summary.sort_values(["_priority_sort", "Target Month", "Remaining"], ascending=[True, True, False]).drop(columns=["_priority_sort"])
+
+        for column in [
+            "Target Amount",
+            "Current Saved",
+            "Remaining",
+            "Progress %",
+            "Suggested Monthly Savings",
+            "Required / Month",
+            "Target Gap",
+        ]:
             goal_summary[column] = goal_summary[column].round(2)
 
         st.dataframe(goal_summary, width="stretch", height=260)
 
-        progress_cols = st.columns(min(4, len(goal_results)))
-        for idx, (_, row) in enumerate(goal_results.head(4).iterrows()):
+        priority_order = {"High": 0, "Medium": 1, "Low": 2}
+        goal_cards = goal_results.assign(_priority_sort=goal_results["Priority"].map(priority_order).fillna(9))
+        goal_cards = goal_cards.sort_values(["_priority_sort", "Target Month", "Remaining"]).drop(columns=["_priority_sort"])
+
+        progress_cols = st.columns(min(4, len(goal_cards)))
+        for idx, (_, row) in enumerate(goal_cards.head(4).iterrows()):
             progress_cols[idx].metric(
                 row["Goal"],
                 f"{row['Progress %']:.1f}%",
-                f"{format_currency(row['Remaining'])} left",
+                f"{row['Status']} • {format_currency(row['Remaining'])} left",
             )
             progress_cols[idx].progress(min(max(row["Progress %"] / 100, 0.0), 1.0))
+
+        breakdown_col1, breakdown_col2 = st.columns(2)
+
+        with breakdown_col1:
+            status_counts = goal_results["Status"].value_counts().rename_axis("Status").reset_index(name="Goals")
+            st.markdown("#### Goal Status Mix")
+            st.bar_chart(status_counts.set_index("Status"))
+
+        with breakdown_col2:
+            required_savings = goal_results[["Goal", "Required / Month"]].copy().sort_values("Required / Month", ascending=False)
+            required_savings["Required / Month"] = required_savings["Required / Month"].round(2)
+            st.markdown("#### Monthly Savings Needed By Goal")
+            st.dataframe(required_savings, width="stretch", height=220)
 
         savings_plot = monthly_goal_view[["month_ts", "savings", "income", "spend"]].rename(
             columns={"month_ts": "Month", "savings": "Savings", "income": "Income", "spend": "Spend"}
