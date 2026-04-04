@@ -5,8 +5,6 @@ from dotenv import load_dotenv
 
 from utils.github_storage import read_csv, write_csv
 from utils.kpi_dashboard import render_kpis, get_income
-from utils.kpi_drilldown import render_kpi_suite
-from utils.forecasting_ml import forecasting_ui
 
 
 def format_currency(value):
@@ -214,11 +212,9 @@ if st.button("🗑 Delete"):
     refresh()
 
 # -----------------------------------------------------------
-# KPIs + DRILLDOWN + FORECAST
+# KPIs
 # -----------------------------------------------------------
 render_kpis(filtered=filtered, df=df, MONTHLY_BUDGET=20000)
-render_kpi_suite(filtered, get_income)
-forecasting_ui(filtered)
 
 # -----------------------------------------------------------
 # GOAL TRACKING
