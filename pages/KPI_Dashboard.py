@@ -68,6 +68,10 @@ if include_cat:
 if exclude_cat:
     filtered = filtered[~filtered.category.isin(exclude_cat)]
 
+if filtered.empty:
+    st.warning("No data available after applying filters.")
+    st.stop()
+
 # -----------------------------------------------------------
 # ADVANCED KPI STRIP
 # -----------------------------------------------------------
@@ -86,6 +90,22 @@ top_cat = (
 
 top_cat_name = top_cat.index[0] if not top_cat.empty else "-"
 top_cat_value = top_cat.iloc[0] if not top_cat.empty else 0
+top_cat_share = (top_cat_value / total_spend * 100) if total_spend else 0
+
+category_stats = (
+    filtered.groupby("category")["amount"]
+    .agg(["sum", "count", "mean"])
+    .sort_values("sum", ascending=False)
+)
+
+active_categories = int(category_stats.shape[0]) if not category_stats.empty else 0
+top3_share = (category_stats["sum"].head(3).sum() / total_spend * 100) if total_spend else 0
+most_frequent_category = category_stats["count"].idxmax() if not category_stats.empty else "-"
+most_frequent_count = int(category_stats["count"].max()) if not category_stats.empty else 0
+highest_avg_category = category_stats["mean"].idxmax() if not category_stats.empty else "-"
+highest_avg_value = float(category_stats["mean"].max()) if not category_stats.empty else 0
+smallest_category = category_stats.index[-1] if not category_stats.empty else "-"
+smallest_category_value = float(category_stats["sum"].iloc[-1]) if not category_stats.empty else 0
 
 # Most active account
 top_acc = (
@@ -120,6 +140,34 @@ k6.metric("🟢 Best Month", best_month)
 k7.metric("🔴 Worst Month", worst_month)
 
 st.caption(f"Spending Volatility (std dev): ₹{volatility:,.0f}")
+
+# -----------------------------------------------------------
+# CATEGORY INTELLIGENCE
+# -----------------------------------------------------------
+st.markdown("### 📂 Category Intelligence")
+
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("📁 Active Categories", active_categories)
+c2.metric("🥇 Top Category Share", f"{top_cat_share:.1f}%")
+c3.metric("📊 Top 3 Share", f"{top3_share:.1f}%")
+c4.metric("🔁 Most Frequent Category", most_frequent_category, f"{most_frequent_count} txns")
+
+c5, c6, c7 = st.columns(3)
+c5.metric("💸 Highest Avg Ticket", highest_avg_category, f"₹{highest_avg_value:,.0f}")
+c6.metric("🪶 Smallest Category", smallest_category, f"₹{smallest_category_value:,.0f}")
+c7.metric("🏆 Top Category", top_cat_name, f"₹{top_cat_value:,.0f}")
+
+st.dataframe(
+    category_stats.rename(
+        columns={
+            "sum": "Total Spend",
+            "count": "Transactions",
+            "mean": "Avg Transaction",
+        }
+    ).round({"Total Spend": 2, "Avg Transaction": 2}),
+    width="stretch",
+    height=260,
+)
 
 # -----------------------------------------------------------
 # KPI RENDER (your original KPIs)
