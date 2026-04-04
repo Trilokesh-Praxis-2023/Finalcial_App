@@ -2,6 +2,7 @@ import base64
 import requests
 import pandas as pd
 from io import StringIO
+from zoneinfo import ZoneInfo
 import streamlit as st
 
 # -----------------------------------------------------------
@@ -25,14 +26,19 @@ RECURRING_BIKE_EMI_START = pd.Timestamp(2026, 4, 1)
 RECURRING_BIKE_EMI_AMOUNT = 5333.0
 RECURRING_BIKE_EMI_CATEGORY = "bike_emi"
 RECURRING_BIKE_EMI_ACCOUNT = "Auto Debit"
+RECURRING_TIMEZONE = ZoneInfo("Asia/Kolkata")
+
+
+def get_current_month_start() -> pd.Timestamp:
+    now_ist = pd.Timestamp.now(tz=RECURRING_TIMEZONE)
+    return pd.Timestamp(year=now_ist.year, month=now_ist.month, day=1)
 
 
 def apply_recurring_transactions(df: pd.DataFrame) -> pd.DataFrame:
     updated = df.copy()
     updated["period"] = pd.to_datetime(updated["period"], errors="coerce")
 
-    today = pd.Timestamp.today().normalize()
-    current_month_start = today.replace(day=1)
+    current_month_start = get_current_month_start()
 
     if current_month_start < RECURRING_BIKE_EMI_START:
         return updated
