@@ -5,6 +5,9 @@ from utils.github_storage import read_csv
 from utils.kpi_dashboard import render_kpis, get_income
 from utils.kpi_drilldown import render_kpi_suite
 
+DEFAULT_TOTAL_CATEGORY_BUDGET = 20000.0
+DEFAULT_RENT_BUDGET = 7000.0
+
 
 def format_currency(value):
     return f"₹{value:,.0f}"
@@ -17,23 +20,49 @@ def round_to_step(value, step=500):
 
 
 def ensure_budget_map(source_df):
-    monthly_category = (
-        source_df.groupby(["year_month", "category"])["amount"]
-        .sum()
-        .reset_index()
-    )
+    categories = sorted(source_df["category"].dropna().unique())
+    category_totals = source_df.groupby("category")["amount"].sum()
+    defaults = {category: 0.0 for category in categories}
 
-    defaults = {}
-    for category in sorted(source_df["category"].dropna().unique()):
-        cat_monthly = monthly_category.loc[monthly_category["category"] == category, "amount"]
-        baseline = float(cat_monthly.mean()) if not cat_monthly.empty else 0.0
-        defaults[category] = round_to_step(baseline if baseline > 0 else 1000.0)
+    if not categories:
+        return {}
+
+    rent_category = next((category for category in categories if str(category).strip().lower() == "rent"), None)
+    remaining_budget = DEFAULT_TOTAL_CATEGORY_BUDGET
+
+    if rent_category is not None:
+        defaults[rent_category] = DEFAULT_RENT_BUDGET
+        remaining_budget -= DEFAULT_RENT_BUDGET
+
+    non_rent_categories = [category for category in categories if category != rent_category]
+    non_rent_total = float(category_totals.reindex(non_rent_categories).fillna(0.0).sum())
+
+    if non_rent_categories:
+        if non_rent_total > 0:
+            for category in non_rent_categories:
+                share = float(category_totals.get(category, 0.0)) / non_rent_total
+                defaults[category] = round_to_step(remaining_budget * share)
+        else:
+            equal_budget = round_to_step(remaining_budget / len(non_rent_categories))
+            for category in non_rent_categories:
+                defaults[category] = equal_budget
+
+    allocated_total = sum(defaults.values())
+    gap = DEFAULT_TOTAL_CATEGORY_BUDGET - allocated_total
+    if categories and abs(gap) >= 1:
+        adjust_target = rent_category if rent_category is not None else max(defaults, key=defaults.get)
+        defaults[adjust_target] = max(defaults[adjust_target] + gap, 0.0)
 
     if "kpi_category_budget_map" not in st.session_state:
         st.session_state["kpi_category_budget_map"] = defaults
     else:
+        saved_budget_map = st.session_state["kpi_category_budget_map"]
         for category, budget in defaults.items():
-            st.session_state["kpi_category_budget_map"].setdefault(category, budget)
+            if category not in saved_budget_map:
+                saved_budget_map[category] = budget
+
+        if rent_category is not None:
+            saved_budget_map[rent_category] = DEFAULT_RENT_BUDGET
 
     return st.session_state["kpi_category_budget_map"]
 
