@@ -21,6 +21,68 @@ HEADERS = {
     "Accept": "application/vnd.github+json",
 }
 
+RECURRING_BIKE_EMI_START = pd.Timestamp(2026, 4, 1)
+RECURRING_BIKE_EMI_AMOUNT = 5333.0
+RECURRING_BIKE_EMI_CATEGORY = "bike_emi"
+RECURRING_BIKE_EMI_ACCOUNT = "Auto Debit"
+
+
+def apply_recurring_transactions(df: pd.DataFrame) -> pd.DataFrame:
+    updated = df.copy()
+    updated["period"] = pd.to_datetime(updated["period"], errors="coerce")
+
+    today = pd.Timestamp.today().normalize()
+    current_month_start = today.replace(day=1)
+
+    if current_month_start < RECURRING_BIKE_EMI_START:
+        return updated
+
+    recurring_months = pd.date_range(
+        start=RECURRING_BIKE_EMI_START,
+        end=current_month_start,
+        freq="MS",
+    )
+
+    existing_periods = set(
+        updated.loc[
+            updated["category"].astype(str).str.lower() == RECURRING_BIKE_EMI_CATEGORY,
+            "period",
+        ]
+        .dropna()
+        .dt.normalize()
+    )
+
+    last_running_total = (
+        pd.to_numeric(updated["running_total"], errors="coerce").max()
+        if "running_total" in updated.columns and not updated.empty
+        else 0.0
+    )
+    last_running_total = 0.0 if pd.isna(last_running_total) else float(last_running_total)
+
+    missing_rows = []
+    for period in recurring_months:
+        normalized_period = period.normalize()
+        if normalized_period in existing_periods:
+            continue
+
+        missing_rows.append(
+            {
+                "period": normalized_period,
+                "accounts": RECURRING_BIKE_EMI_ACCOUNT,
+                "category": RECURRING_BIKE_EMI_CATEGORY,
+                "amount": RECURRING_BIKE_EMI_AMOUNT,
+                "month": normalized_period.strftime("%B"),
+                "running_total": last_running_total,
+                "year": normalized_period.year,
+                "year_month": str(normalized_period.to_period("M")),
+            }
+        )
+
+    if missing_rows:
+        updated = pd.concat([updated, pd.DataFrame(missing_rows)], ignore_index=True)
+
+    return updated
+
 
 # -----------------------------------------------------------
 # READ CSV
@@ -35,6 +97,7 @@ def read_csv():
     decoded = base64.b64decode(content).decode("utf-8")
 
     df = pd.read_csv(StringIO(decoded))
+    df = apply_recurring_transactions(df)
 
     df["period"] = pd.to_datetime(df["period"], errors="coerce")
     df["year"] = df.period.dt.year
