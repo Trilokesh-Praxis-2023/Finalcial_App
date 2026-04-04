@@ -5,6 +5,45 @@ from utils.github_storage import read_csv
 from utils.kpi_dashboard import render_kpis, get_income
 from utils.kpi_drilldown import render_kpi_suite
 
+
+def format_currency(value):
+    return f"₹{value:,.0f}"
+
+
+def round_to_step(value, step=500):
+    if value <= 0:
+        return 0.0
+    return float(step * round(value / step))
+
+
+def ensure_budget_map(source_df):
+    monthly_category = (
+        source_df.groupby(["year_month", "category"])["amount"]
+        .sum()
+        .reset_index()
+    )
+
+    defaults = {}
+    for category in sorted(source_df["category"].dropna().unique()):
+        cat_monthly = monthly_category.loc[monthly_category["category"] == category, "amount"]
+        baseline = float(cat_monthly.mean()) if not cat_monthly.empty else 0.0
+        defaults[category] = round_to_step(baseline if baseline > 0 else 1000.0)
+
+    if "kpi_category_budget_map" not in st.session_state:
+        st.session_state["kpi_category_budget_map"] = defaults
+    else:
+        for category, budget in defaults.items():
+            st.session_state["kpi_category_budget_map"].setdefault(category, budget)
+
+    return st.session_state["kpi_category_budget_map"]
+
+
+def safe_pct_change(current_value, previous_value):
+    if previous_value in (None, 0):
+        return float("nan")
+    return ((current_value - previous_value) / previous_value) * 100
+
+
 # -----------------------------------------------------------
 # LOAD GLOBAL CSS
 # -----------------------------------------------------------
@@ -168,6 +207,246 @@ st.dataframe(
     width="stretch",
     height=260,
 )
+
+# -----------------------------------------------------------
+# CATEGORY BUDGET VS ACTUAL
+# -----------------------------------------------------------
+st.markdown("### 🎯 Budget vs Actual by Category")
+
+budget_map = ensure_budget_map(df)
+available_budget_months = sorted(filtered["year_month"].unique())
+comparison_month = st.selectbox(
+    "Budget Comparison Month",
+    options=available_budget_months,
+    index=len(available_budget_months) - 1,
+)
+
+budget_categories = sorted(filtered["category"].dropna().unique())
+budget_editor = pd.DataFrame(
+    {
+        "Category": budget_categories,
+        "Monthly Budget": [float(budget_map.get(category, 0.0)) for category in budget_categories],
+    }
+)
+
+edited_budgets = st.data_editor(
+    budget_editor,
+    hide_index=True,
+    width="stretch",
+    column_config={
+        "Category": st.column_config.TextColumn("Category", disabled=True),
+        "Monthly Budget": st.column_config.NumberColumn(
+            "Monthly Budget",
+            min_value=0.0,
+            step=500.0,
+            format="%.2f",
+        ),
+    },
+    key="kpi_budget_editor",
+)
+
+for _, row in edited_budgets.iterrows():
+    budget_map[row["Category"]] = float(row["Monthly Budget"] or 0.0)
+
+month_actuals = (
+    filtered[filtered["year_month"] == comparison_month]
+    .groupby("category")["amount"]
+    .sum()
+)
+
+budget_vs_actual = edited_budgets.copy()
+budget_vs_actual["Actual Spend"] = budget_vs_actual["Category"].map(month_actuals).fillna(0.0)
+budget_vs_actual["Variance"] = budget_vs_actual["Monthly Budget"] - budget_vs_actual["Actual Spend"]
+budget_vs_actual["Overspend %"] = budget_vs_actual.apply(
+    lambda row: (
+        ((row["Actual Spend"] - row["Monthly Budget"]) / row["Monthly Budget"]) * 100
+        if row["Monthly Budget"] > 0 and row["Actual Spend"] > row["Monthly Budget"]
+        else (100.0 if row["Monthly Budget"] == 0 and row["Actual Spend"] > 0 else 0.0)
+    ),
+    axis=1,
+)
+budget_vs_actual["Remaining Budget"] = budget_vs_actual["Variance"].clip(lower=0.0)
+budget_vs_actual["Status"] = budget_vs_actual["Variance"].apply(
+    lambda value: "Red Flag" if value < 0 else "Within Budget"
+)
+budget_vs_actual = budget_vs_actual.sort_values(["Overspend %", "Actual Spend"], ascending=[False, False])
+
+total_budget = float(budget_vs_actual["Monthly Budget"].sum())
+actual_budget_spend = float(budget_vs_actual["Actual Spend"].sum())
+over_budget_count = int((budget_vs_actual["Status"] == "Red Flag").sum())
+remaining_budget_total = float(budget_vs_actual["Variance"].clip(lower=0.0).sum())
+
+b1, b2, b3, b4 = st.columns(4)
+b1.metric("Budgeted Categories", len(budget_vs_actual))
+b2.metric("Monthly Budget Total", format_currency(total_budget))
+b3.metric("Actual Spend In Month", format_currency(actual_budget_spend))
+b4.metric("Red-Flag Categories", over_budget_count)
+
+st.caption(f"Budget comparison is based on {comparison_month}. Red flags mark categories where actual spend is above the monthly limit.")
+
+budget_display = budget_vs_actual.copy()
+for column in ["Monthly Budget", "Actual Spend", "Variance", "Overspend %", "Remaining Budget"]:
+    budget_display[column] = budget_display[column].round(2)
+st.dataframe(budget_display, width="stretch", height=280)
+
+# -----------------------------------------------------------
+# SAVINGS OPPORTUNITY DETECTOR
+# -----------------------------------------------------------
+st.markdown("### 💡 Savings Opportunity Detector")
+
+category_monthly = (
+    filtered.groupby(["year_month", "category"])["amount"]
+    .sum()
+    .reset_index()
+)
+category_monthly["month_ts"] = pd.to_datetime(category_monthly["year_month"])
+
+category_pivot = category_monthly.pivot_table(
+    index="month_ts",
+    columns="category",
+    values="amount",
+    fill_value=0.0,
+).sort_index()
+
+latest_month_ts = category_pivot.index.max()
+previous_month_ts = category_pivot.index[-2] if len(category_pivot.index) > 1 else None
+latest_month_label = latest_month_ts.strftime("%Y-%m") if len(category_pivot.index) > 0 else "-"
+
+growth_rows = []
+savings_rows = []
+
+for category in category_pivot.columns:
+    series = category_pivot[category]
+    latest_value = float(series.iloc[-1])
+    previous_value = float(series.iloc[-2]) if len(series) > 1 else 0.0
+    growth_amount = latest_value - previous_value
+    growth_pct = safe_pct_change(latest_value, previous_value)
+
+    if growth_amount > 0:
+        growth_rows.append(
+            {
+                "Category": category,
+                "Latest Month Spend": latest_value,
+                "Previous Month Spend": previous_value,
+                "Growth Amount": growth_amount,
+                "Growth %": growth_pct,
+            }
+        )
+
+    prior_window = series.iloc[max(len(series) - 4, 0):-1]
+    baseline = float(prior_window.mean()) if not prior_window.empty else previous_value
+    possible_saving = max(latest_value - baseline, 0.0)
+
+    if possible_saving > 0:
+        savings_rows.append(
+            {
+                "Category": category,
+                "Latest Month Spend": latest_value,
+                "Baseline Spend": baseline,
+                "Possible Monthly Savings": possible_saving,
+            }
+        )
+
+growth_df = pd.DataFrame(growth_rows).sort_values("Growth Amount", ascending=False) if growth_rows else pd.DataFrame()
+savings_df = pd.DataFrame(savings_rows).sort_values("Possible Monthly Savings", ascending=False) if savings_rows else pd.DataFrame()
+
+latest_month_transactions = filtered[filtered["year_month"] == latest_month_label].copy()
+repeat_summary = (
+    latest_month_transactions.groupby("category")
+    .agg(
+        Transactions=("amount", "size"),
+        Active_Days=("period", lambda s: pd.to_datetime(s).dt.date.nunique()),
+        Total_Spend=("amount", "sum"),
+        Avg_Ticket=("amount", "mean"),
+    )
+    .reset_index()
+    .rename(columns={"category": "Category"})
+)
+
+repeat_threshold = repeat_summary["Transactions"].median() if not repeat_summary.empty else 0
+avg_ticket_threshold = repeat_summary["Avg_Ticket"].median() if not repeat_summary.empty else 0
+
+repeat_candidates = repeat_summary[
+    (repeat_summary["Transactions"] >= max(repeat_threshold, 3))
+    & (repeat_summary["Avg_Ticket"] <= avg_ticket_threshold)
+].sort_values(["Transactions", "Total_Spend"], ascending=[False, False])
+
+top_growth_category = growth_df.iloc[0]["Category"] if not growth_df.empty else "-"
+top_growth_amount = float(growth_df.iloc[0]["Growth Amount"]) if not growth_df.empty else 0.0
+top_savings_category = savings_df.iloc[0]["Category"] if not savings_df.empty else "-"
+top_savings_amount = float(savings_df.iloc[0]["Possible Monthly Savings"]) if not savings_df.empty else 0.0
+
+s1, s2, s3, s4 = st.columns(4)
+s1.metric("Highest Growth Category", top_growth_category, format_currency(top_growth_amount))
+s2.metric("Top Savings Opportunity", top_savings_category, format_currency(top_savings_amount))
+s3.metric("Repeat-Spend Categories", len(repeat_candidates))
+s4.metric("Potential Savings Pool", format_currency(float(savings_df["Possible Monthly Savings"].head(5).sum()) if not savings_df.empty else 0.0))
+
+tab1, tab2, tab3 = st.tabs(["Growth Watchlist", "Savings Opportunities", "Repeat Spend Heuristic"])
+
+with tab1:
+    if growth_df.empty:
+        st.info("Need at least 2 months of category history to detect growth categories.")
+    else:
+        growth_display = growth_df.head(8).copy()
+        for column in ["Latest Month Spend", "Previous Month Spend", "Growth Amount", "Growth %"]:
+            growth_display[column] = growth_display[column].round(2)
+        st.dataframe(growth_display, width="stretch", height=260)
+
+with tab2:
+    if savings_df.empty:
+        st.info("No category is currently above its recent baseline.")
+    else:
+        savings_display = savings_df.head(8).copy()
+        for column in ["Latest Month Spend", "Baseline Spend", "Possible Monthly Savings"]:
+            savings_display[column] = savings_display[column].round(2)
+        st.dataframe(savings_display, width="stretch", height=260)
+
+with tab3:
+    st.caption("Heuristic: categories with frequent low-ticket transactions in the latest month may be easier to trim.")
+    if repeat_candidates.empty:
+        st.info("No obvious repeat-spend pattern detected in the latest month.")
+    else:
+        repeat_display = repeat_candidates.head(8).copy()
+        for column in ["Total_Spend", "Avg_Ticket"]:
+            repeat_display[column] = repeat_display[column].round(2)
+        st.dataframe(repeat_display, width="stretch", height=260)
+
+# -----------------------------------------------------------
+# CATEGORY TREND KPIS
+# -----------------------------------------------------------
+st.markdown("### 📈 Category Trend KPIs")
+
+major_categories = category_stats.head(5).index.tolist()
+trend_rows = []
+
+for category in major_categories:
+    series = category_pivot[category] if category in category_pivot.columns else pd.Series(dtype=float)
+    latest_value = float(series.iloc[-1]) if not series.empty else 0.0
+    previous_value = float(series.iloc[-2]) if len(series) > 1 else 0.0
+    trend_rows.append(
+        {
+            "Category": category,
+            "Latest Month Spend": latest_value,
+            "MoM Change %": safe_pct_change(latest_value, previous_value),
+            "3-Month Avg": float(series.tail(3).mean()) if not series.empty else 0.0,
+            "Peak Month": series.idxmax().strftime("%Y-%m") if not series.empty else "-",
+            "Peak Spend": float(series.max()) if not series.empty else 0.0,
+            "Volatility": float(series.std()) if len(series) > 1 else 0.0,
+        }
+    )
+
+trend_df = pd.DataFrame(trend_rows)
+trend_display = trend_df.copy()
+for column in ["Latest Month Spend", "MoM Change %", "3-Month Avg", "Peak Spend", "Volatility"]:
+    trend_display[column] = trend_display[column].round(2)
+
+t1, t2, t3 = st.columns(3)
+t1.metric("Tracked Major Categories", len(trend_display))
+t2.metric("Latest Trend Month", latest_month_label)
+t3.metric("Avg Category Volatility", format_currency(float(trend_df["Volatility"].mean()) if not trend_df.empty else 0.0))
+
+st.dataframe(trend_display, width="stretch", height=260)
 
 # -----------------------------------------------------------
 # KPI RENDER (your original KPIs)
