@@ -20,20 +20,56 @@ st.title("🧠 Spending Behavior Analysis")
 df = read_csv()
 df["period"] = pd.to_datetime(df["period"])
 
-daily = df.groupby("period")["amount"].sum().reset_index()
+# -----------------------------------------------------------
+# SIDEBAR FILTERS
+# -----------------------------------------------------------
+st.sidebar.markdown("### Filters")
+
+c1, c2 = st.sidebar.columns(2)
+
+with c1:
+    f_year = st.multiselect("Year", sorted(df.year.unique()))
+    f_acc = st.multiselect("Account", sorted(df.accounts.unique()))
+
+with c2:
+    f_month = st.multiselect("Month", sorted(df.year_month.unique()))
+    include_cat = st.multiselect("Include Category", sorted(df.category.unique()))
+    exclude_cat = st.multiselect("Exclude Category", sorted(df.category.unique()))
+
+# -----------------------------------------------------------
+# APPLY FILTERS
+# -----------------------------------------------------------
+filtered = df.copy()
+
+if f_year:
+    filtered = filtered[filtered.year.isin(f_year)]
+if f_month:
+    filtered = filtered[filtered.year_month.isin(f_month)]
+if f_acc:
+    filtered = filtered[filtered.accounts.isin(f_acc)]
+if include_cat:
+    filtered = filtered[filtered.category.isin(include_cat)]
+if exclude_cat:
+    filtered = filtered[~filtered.category.isin(exclude_cat)]
+
+if filtered.empty:
+    st.warning("No data available after applying filters.")
+    st.stop()
+
+daily = filtered.groupby("period")["amount"].sum().reset_index()
 
 # -----------------------------------------------------------
 # MOST FREQUENT CATEGORY
 # -----------------------------------------------------------
 st.subheader("🔁 Most Frequent Category")
-freq_cat = df["category"].value_counts().idxmax()
+freq_cat = filtered["category"].value_counts().idxmax()
 st.success(f"You spend most frequently on **{freq_cat}**")
 
 # -----------------------------------------------------------
 # MOST USED ACCOUNT
 # -----------------------------------------------------------
 st.subheader("🏦 Most Used Account")
-freq_acc = df["accounts"].value_counts().idxmax()
+freq_acc = filtered["accounts"].value_counts().idxmax()
 st.info(f"Most used payment method: **{freq_acc}**")
 
 # -----------------------------------------------------------
@@ -63,8 +99,8 @@ st.write(f"{len(low_days)} low-spend days identified.")
 # -----------------------------------------------------------
 st.subheader("📆 Day-of-Week Spending Pattern")
 
-df["dow"] = df["period"].dt.day_name()
-dow_spend = df.groupby("dow")["amount"].mean()
+filtered["dow"] = filtered["period"].dt.day_name()
+dow_spend = filtered.groupby("dow")["amount"].mean()
 st.bar_chart(dow_spend)
 
 # -----------------------------------------------------------
@@ -86,7 +122,7 @@ else:
 # -----------------------------------------------------------
 st.subheader("🎯 Your Habit Category")
 
-habit_cat = df.groupby("category")["amount"].mean().idxmax()
+habit_cat = filtered.groupby("category")["amount"].mean().idxmax()
 st.write(f"You tend to spend the highest per transaction on **{habit_cat}**.")
 
 # -----------------------------------------------------------
@@ -114,7 +150,7 @@ st.metric("Longest Consecutive Spending Streak", f"{max_streak} days")
 # -----------------------------------------------------------
 st.subheader("🛑 No-Spend Discipline Days")
 
-all_days = pd.date_range(df["period"].min(), df["period"].max())
+all_days = pd.date_range(filtered["period"].min(), filtered["period"].max())
 spent_days = set(daily["period"])
 no_spend_days = [d for d in all_days if d not in spent_days]
 
@@ -125,12 +161,12 @@ st.write(f"You had **{len(no_spend_days)}** no-spend days.")
 # -----------------------------------------------------------
 st.subheader("📅 Beginning vs End of Month Spending")
 
-df["day"] = df["period"].dt.day
-df["month_part"] = df["day"].apply(
+filtered["day"] = filtered["period"].dt.day
+filtered["month_part"] = filtered["day"].apply(
     lambda x: "Start (1-10)" if x <= 10 else ("Middle (11-20)" if x <= 20 else "End (21-31)")
 )
 
-month_part_spend = df.groupby("month_part")["amount"].mean()
+month_part_spend = filtered.groupby("month_part")["amount"].mean()
 st.bar_chart(month_part_spend)
 
 # -----------------------------------------------------------
@@ -147,5 +183,5 @@ st.dataframe(risky)
 # -----------------------------------------------------------
 st.subheader("📆 Most Common Spend Day")
 
-common_day = df["period"].dt.day_name().value_counts().idxmax()
+common_day = filtered["period"].dt.day_name().value_counts().idxmax()
 st.write(f"You most frequently spend on **{common_day}**.")

@@ -175,7 +175,8 @@ with c1:
 
 with c2:
     f_month = st.multiselect("Month", sorted(df.year_month.unique()))
-    f_cat = st.multiselect("Category", sorted(df.category.unique()))
+    include_cat = st.multiselect("Include Category", sorted(df.category.unique()))
+    exclude_cat = st.multiselect("Exclude Category", sorted(df.category.unique()))
 
 
 # -----------------------------------------------------------
@@ -187,8 +188,10 @@ if f_year:
     filtered = filtered[filtered.year.isin(f_year)]
 if f_month:
     filtered = filtered[filtered.year_month.isin(f_month)]
-if f_cat:
-    filtered = filtered[filtered.category.isin(f_cat)]
+if include_cat:
+    filtered = filtered[filtered.category.isin(include_cat)]
+if exclude_cat:
+    filtered = filtered[~filtered.category.isin(exclude_cat)]
 if f_acc:
     filtered = filtered[filtered.accounts.isin(f_acc)]
 

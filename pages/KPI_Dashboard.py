@@ -36,8 +36,13 @@ with c1:
 
 with c2:
     f_month = st.multiselect("Month", sorted(df.year_month.unique()))
+    include_cat = st.multiselect(
+        "Include Category",
+        sorted(df.category.unique()),
+        placeholder="Include category..."
+    )
     exclude_cat = st.multiselect(
-        "",
+        "Exclude Category",
         sorted(df.category.unique()),
         placeholder="Exclude category..."
     )
@@ -55,6 +60,9 @@ if f_month:
 
 if f_acc:
     filtered = filtered[filtered.accounts.isin(f_acc)]
+
+if include_cat:
+    filtered = filtered[filtered.category.isin(include_cat)]
 
 # 👉 Exclude category logic
 if exclude_cat:
