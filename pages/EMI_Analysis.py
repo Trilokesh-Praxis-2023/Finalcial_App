@@ -613,7 +613,7 @@ tab_compare, tab_original, tab_updated = st.tabs(
 with tab_compare:
     comparison_display = comparison_df.copy()
     for column in comparison_display.columns:
-        if column != "Month":
+        if column != "Month" and pd.api.types.is_numeric_dtype(comparison_display[column]):
             comparison_display[column] = comparison_display[column].round(2)
     st.dataframe(comparison_display, width="stretch", height=360)
 
