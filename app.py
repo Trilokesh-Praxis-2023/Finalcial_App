@@ -30,7 +30,8 @@ def estimate_goal_completion(current_saved, target_amount, monthly_contribution,
 def months_until_target(current_period, target_period):
     current = pd.Period(current_period, freq="M")
     target = pd.Period(target_period, freq="M")
-    return max(int(target - current), 0) + 1
+    month_gap = (target.year - current.year) * 12 + (target.month - current.month)
+    return max(month_gap, 0) + 1
 
 
 # -----------------------------------------------------------
