@@ -119,26 +119,34 @@ with c2:
 # APPLY FILTERS
 # -----------------------------------------------------------
 filtered = df.copy()
+historical_filtered = df.copy()
 
 if f_year:
     filtered = filtered[filtered.year.isin(f_year)]
+    historical_filtered = historical_filtered[historical_filtered.year.isin(f_year)]
 
 if f_month:
     filtered = filtered[filtered.year_month.isin(f_month)]
 
 if f_acc:
     filtered = filtered[filtered.accounts.isin(f_acc)]
+    historical_filtered = historical_filtered[historical_filtered.accounts.isin(f_acc)]
 
 if include_cat:
     filtered = filtered[filtered.category.isin(include_cat)]
+    historical_filtered = historical_filtered[historical_filtered.category.isin(include_cat)]
 
 # 👉 Exclude category logic
 if exclude_cat:
     filtered = filtered[~filtered.category.isin(exclude_cat)]
+    historical_filtered = historical_filtered[~historical_filtered.category.isin(exclude_cat)]
 
 if filtered.empty:
     st.warning("No data available after applying filters.")
     st.stop()
+
+if historical_filtered.empty:
+    historical_filtered = filtered.copy()
 
 # -----------------------------------------------------------
 # ADVANCED KPI STRIP
@@ -323,31 +331,42 @@ st.dataframe(budget_display, width="stretch", height=280)
 # -----------------------------------------------------------
 st.markdown("### 💡 Savings Opportunity Detector")
 
+analysis_month = max(f_month) if f_month else max(historical_filtered["year_month"])
+analysis_month_ts = pd.to_datetime(analysis_month)
+
+historical_scope = historical_filtered[
+    pd.to_datetime(historical_filtered["year_month"]) <= analysis_month_ts
+].copy()
+
 category_monthly = (
-    filtered.groupby(["year_month", "category"])["amount"]
+    historical_scope.groupby(["year_month", "category"])["amount"]
     .sum()
     .reset_index()
 )
 category_monthly["month_ts"] = pd.to_datetime(category_monthly["year_month"])
 
-category_pivot = category_monthly.pivot_table(
-    index="month_ts",
-    columns="category",
-    values="amount",
-    fill_value=0.0,
-).sort_index()
+if not category_monthly.empty:
+    category_pivot = category_monthly.pivot_table(
+        index="month_ts",
+        columns="category",
+        values="amount",
+        fill_value=0.0,
+    ).sort_index()
+    full_month_index = pd.date_range(category_pivot.index.min(), analysis_month_ts, freq="MS")
+    category_pivot = category_pivot.reindex(full_month_index, fill_value=0.0)
+else:
+    category_pivot = pd.DataFrame(index=pd.DatetimeIndex([analysis_month_ts]))
 
-latest_month_ts = category_pivot.index.max()
-previous_month_ts = category_pivot.index[-2] if len(category_pivot.index) > 1 else None
-latest_month_label = latest_month_ts.strftime("%Y-%m") if len(category_pivot.index) > 0 else "-"
+analysis_month_label = analysis_month_ts.strftime("%Y-%m")
+analysis_month_position = category_pivot.index.get_loc(analysis_month_ts) if analysis_month_ts in category_pivot.index else len(category_pivot.index) - 1
 
 growth_rows = []
 savings_rows = []
 
 for category in category_pivot.columns:
     series = category_pivot[category]
-    latest_value = float(series.iloc[-1])
-    previous_value = float(series.iloc[-2]) if len(series) > 1 else 0.0
+    latest_value = float(series.iloc[analysis_month_position]) if len(series) > 0 else 0.0
+    previous_value = float(series.iloc[analysis_month_position - 1]) if analysis_month_position >= 1 else 0.0
     growth_amount = latest_value - previous_value
     growth_pct = safe_pct_change(latest_value, previous_value)
 
@@ -362,7 +381,7 @@ for category in category_pivot.columns:
             }
         )
 
-    prior_window = series.iloc[max(len(series) - 4, 0):-1]
+    prior_window = series.iloc[max(analysis_month_position - 3, 0):analysis_month_position]
     baseline = float(prior_window.mean()) if not prior_window.empty else previous_value
     possible_saving = max(latest_value - baseline, 0.0)
 
@@ -376,10 +395,14 @@ for category in category_pivot.columns:
             }
         )
 
-growth_df = pd.DataFrame(growth_rows).sort_values("Growth Amount", ascending=False) if growth_rows else pd.DataFrame()
+growth_df = (
+    pd.DataFrame(growth_rows).sort_values("Growth Amount", ascending=False)
+    if growth_rows and analysis_month_position >= 1
+    else pd.DataFrame()
+)
 savings_df = pd.DataFrame(savings_rows).sort_values("Possible Monthly Savings", ascending=False) if savings_rows else pd.DataFrame()
 
-latest_month_transactions = filtered[filtered["year_month"] == latest_month_label].copy()
+latest_month_transactions = historical_scope[historical_scope["year_month"] == analysis_month_label].copy()
 repeat_summary = (
     latest_month_transactions.groupby("category")
     .agg(
@@ -411,11 +434,15 @@ s2.metric("Top Savings Opportunity", top_savings_category, format_currency(top_s
 s3.metric("Repeat-Spend Categories", len(repeat_candidates))
 s4.metric("Potential Savings Pool", format_currency(float(savings_df["Possible Monthly Savings"].head(5).sum()) if not savings_df.empty else 0.0))
 
+st.caption(
+    f"These detectors use historical data up to {analysis_month_label} after applying Year, Account, and Category filters."
+)
+
 tab1, tab2, tab3 = st.tabs(["Growth Watchlist", "Savings Opportunities", "Repeat Spend Heuristic"])
 
 with tab1:
     if growth_df.empty:
-        st.info("Need at least 2 months of category history to detect growth categories.")
+        st.info(f"Need at least 2 months of category history before or up to {analysis_month_label} to detect growth categories.")
     else:
         growth_display = growth_df.head(8).copy()
         for column in ["Latest Month Spend", "Previous Month Spend", "Growth Amount", "Growth %"]:
@@ -432,7 +459,7 @@ with tab2:
         st.dataframe(savings_display, width="stretch", height=260)
 
 with tab3:
-    st.caption("Heuristic: categories with frequent low-ticket transactions in the latest month may be easier to trim.")
+    st.caption(f"Heuristic: categories with frequent low-ticket transactions in {analysis_month_label} may be easier to trim.")
     if repeat_candidates.empty:
         st.info("No obvious repeat-spend pattern detected in the latest month.")
     else:
@@ -451,17 +478,17 @@ trend_rows = []
 
 for category in major_categories:
     series = category_pivot[category] if category in category_pivot.columns else pd.Series(dtype=float)
-    latest_value = float(series.iloc[-1]) if not series.empty else 0.0
-    previous_value = float(series.iloc[-2]) if len(series) > 1 else 0.0
+    latest_value = float(series.iloc[analysis_month_position]) if len(series) > 0 else 0.0
+    previous_value = float(series.iloc[analysis_month_position - 1]) if analysis_month_position >= 1 else 0.0
     trend_rows.append(
         {
             "Category": category,
             "Latest Month Spend": latest_value,
             "MoM Change %": safe_pct_change(latest_value, previous_value),
-            "3-Month Avg": float(series.tail(3).mean()) if not series.empty else 0.0,
-            "Peak Month": series.idxmax().strftime("%Y-%m") if not series.empty else "-",
-            "Peak Spend": float(series.max()) if not series.empty else 0.0,
-            "Volatility": float(series.std()) if len(series) > 1 else 0.0,
+            "3-Month Avg": float(series.iloc[max(analysis_month_position - 2, 0):analysis_month_position + 1].mean()) if not series.empty else 0.0,
+            "Peak Month": series.iloc[:analysis_month_position + 1].idxmax().strftime("%Y-%m") if not series.empty else "-",
+            "Peak Spend": float(series.iloc[:analysis_month_position + 1].max()) if not series.empty else 0.0,
+            "Volatility": float(series.iloc[:analysis_month_position + 1].std()) if analysis_month_position >= 1 else 0.0,
         }
     )
 
@@ -472,7 +499,7 @@ for column in ["Latest Month Spend", "MoM Change %", "3-Month Avg", "Peak Spend"
 
 t1, t2, t3 = st.columns(3)
 t1.metric("Tracked Major Categories", len(trend_display))
-t2.metric("Latest Trend Month", latest_month_label)
+t2.metric("Latest Trend Month", analysis_month_label)
 t3.metric("Avg Category Volatility", format_currency(float(trend_df["Volatility"].mean()) if not trend_df.empty else 0.0))
 
 st.dataframe(trend_display, width="stretch", height=260)

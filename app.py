@@ -8,6 +8,25 @@ from utils.kpi_dashboard import render_kpis, get_income
 from utils.kpi_drilldown import render_kpi_suite
 from utils.forecasting_ml import forecasting_ui
 
+
+def format_currency(value):
+    return f"₹{value:,.0f}"
+
+
+def estimate_goal_completion(current_saved, target_amount, monthly_contribution, start_period):
+    remaining = max(float(target_amount) - float(current_saved), 0.0)
+
+    if remaining <= 0:
+        return "Completed", 0
+
+    if monthly_contribution <= 0:
+        return "No projection", None
+
+    months_needed = int((remaining + monthly_contribution - 1) // monthly_contribution)
+    completion_month = pd.Period(start_period, freq="M") + months_needed - 1
+    return completion_month.strftime("%b %Y"), months_needed
+
+
 # -----------------------------------------------------------
 # CONFIG
 # -----------------------------------------------------------
@@ -104,6 +123,10 @@ if include_cat:
 if exclude_cat:
     filtered = filtered[~filtered.category.isin(exclude_cat)]
 
+if filtered.empty:
+    st.warning("No data available after applying filters.")
+    st.stop()
+
 # -----------------------------------------------------------
 # ADD EXPENSE
 # -----------------------------------------------------------
@@ -196,3 +219,121 @@ if st.button("🗑 Delete"):
 render_kpis(filtered=filtered, df=df, MONTHLY_BUDGET=20000)
 render_kpi_suite(filtered, get_income)
 forecasting_ui(filtered)
+
+# -----------------------------------------------------------
+# GOAL TRACKING
+# -----------------------------------------------------------
+st.markdown("<h3>🎯 Goal Tracking</h3>", unsafe_allow_html=True)
+st.caption("Savings projections use mapped income, including the assumption that income from May 2026 onward is ₹32,000.")
+
+goal_source = df.copy()
+goal_source["period"] = pd.to_datetime(goal_source["period"])
+goal_source["year_month"] = goal_source["period"].dt.to_period("M").astype(str)
+
+monthly_goal_view = (
+    goal_source.groupby("year_month", as_index=False)["amount"]
+    .sum()
+    .rename(columns={"amount": "spend"})
+)
+monthly_goal_view["income"] = monthly_goal_view["year_month"].apply(get_income).astype(float)
+monthly_goal_view = monthly_goal_view[monthly_goal_view["income"] > 0].copy()
+monthly_goal_view["savings"] = monthly_goal_view["income"] - monthly_goal_view["spend"]
+monthly_goal_view["month_ts"] = pd.to_datetime(monthly_goal_view["year_month"])
+monthly_goal_view = monthly_goal_view.sort_values("month_ts").reset_index(drop=True)
+
+if monthly_goal_view.empty:
+    st.info("Goal tracking needs at least one month with mapped income.")
+else:
+    recent_window = min(3, len(monthly_goal_view))
+    avg_recent_savings = float(monthly_goal_view["savings"].tail(recent_window).mean())
+    avg_all_savings = float(monthly_goal_view["savings"].mean())
+    latest_savings = float(monthly_goal_view["savings"].iloc[-1])
+    projected_monthly_contribution = max(avg_recent_savings, 0.0)
+    current_goal_period = monthly_goal_view["year_month"].iloc[-1]
+
+    default_goals = pd.DataFrame(
+        [
+            {"Goal": "Emergency Fund", "Target Amount": 150000.0, "Current Saved": 30000.0},
+            {"Goal": "Trip", "Target Amount": 60000.0, "Current Saved": 10000.0},
+            {"Goal": "Gadget", "Target Amount": 80000.0, "Current Saved": 15000.0},
+            {"Goal": "Loan Closure Target", "Target Amount": 200000.0, "Current Saved": 25000.0},
+        ]
+    )
+
+    if "goal_tracker_items" not in st.session_state:
+        st.session_state["goal_tracker_items"] = default_goals
+
+    g1, g2, g3, g4 = st.columns(4)
+    g1.metric("Avg Savings / Month", format_currency(avg_all_savings))
+    g2.metric("Recent Savings Pace", format_currency(avg_recent_savings))
+    g3.metric("Latest Month Savings", format_currency(latest_savings))
+    g4.metric("Projection Basis", f"{recent_window}-month avg")
+
+    goal_editor = st.data_editor(
+        st.session_state["goal_tracker_items"],
+        num_rows="dynamic",
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Goal": st.column_config.TextColumn("Goal"),
+            "Target Amount": st.column_config.NumberColumn("Target Amount", min_value=0.0, step=5000.0, format="%.2f"),
+            "Current Saved": st.column_config.NumberColumn("Current Saved", min_value=0.0, step=1000.0, format="%.2f"),
+        },
+        key="goal_tracker_editor",
+    )
+    st.session_state["goal_tracker_items"] = goal_editor
+
+    goal_results = goal_editor.copy()
+    goal_results = goal_results.dropna(subset=["Goal", "Target Amount", "Current Saved"])
+    goal_results = goal_results[goal_results["Goal"].astype(str).str.strip() != ""].copy()
+
+    if goal_results.empty:
+        st.info("Add one or more goals to start tracking progress.")
+    else:
+        goal_results["Target Amount"] = pd.to_numeric(goal_results["Target Amount"], errors="coerce").fillna(0.0)
+        goal_results["Current Saved"] = pd.to_numeric(goal_results["Current Saved"], errors="coerce").fillna(0.0)
+        goal_results["Remaining"] = (goal_results["Target Amount"] - goal_results["Current Saved"]).clip(lower=0.0)
+        goal_results["Progress %"] = goal_results.apply(
+            lambda row: ((row["Current Saved"] / row["Target Amount"]) * 100) if row["Target Amount"] > 0 else 0.0,
+            axis=1,
+        )
+
+        completion_labels = []
+        months_needed_list = []
+        for _, row in goal_results.iterrows():
+            completion_label, months_needed = estimate_goal_completion(
+                current_saved=row["Current Saved"],
+                target_amount=row["Target Amount"],
+                monthly_contribution=projected_monthly_contribution,
+                start_period=current_goal_period,
+            )
+            completion_labels.append(completion_label)
+            months_needed_list.append(months_needed)
+
+        goal_results["Projected Completion"] = completion_labels
+        goal_results["Months Needed"] = months_needed_list
+        goal_results["Suggested Monthly Savings"] = goal_results.apply(
+            lambda row: (row["Remaining"] / max(row["Months Needed"], 1)) if row["Months Needed"] not in (None, 0) else 0.0,
+            axis=1,
+        )
+
+        goal_summary = goal_results.copy()
+        for column in ["Target Amount", "Current Saved", "Remaining", "Progress %", "Suggested Monthly Savings"]:
+            goal_summary[column] = goal_summary[column].round(2)
+
+        st.dataframe(goal_summary, width="stretch", height=260)
+
+        progress_cols = st.columns(min(4, len(goal_results)))
+        for idx, (_, row) in enumerate(goal_results.head(4).iterrows()):
+            progress_cols[idx].metric(
+                row["Goal"],
+                f"{row['Progress %']:.1f}%",
+                f"{format_currency(row['Remaining'])} left",
+            )
+            progress_cols[idx].progress(min(max(row["Progress %"] / 100, 0.0), 1.0))
+
+        savings_plot = monthly_goal_view[["month_ts", "savings", "income", "spend"]].rename(
+            columns={"month_ts": "Month", "savings": "Savings", "income": "Income", "spend": "Spend"}
+        ).set_index("Month")
+        st.markdown("#### Savings Trend Supporting Goals")
+        st.line_chart(savings_plot)

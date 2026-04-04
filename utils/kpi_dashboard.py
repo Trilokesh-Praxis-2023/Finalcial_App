@@ -62,6 +62,8 @@ def calc_income(year_month: str) -> float:
         return 12000
     elif ym == pd.Timestamp(2024, 11, 1):
         return 14112
+    elif ym >= pd.Timestamp(2026, 5, 1):
+        return 32000
     elif ym >= pd.Timestamp(2024, 12, 1):
         return 24200
     return 0.0
